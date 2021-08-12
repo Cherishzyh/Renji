@@ -1,6 +1,8 @@
 import os
 import random
 from random import shuffle
+
+import numpy as np
 import pandas as pd
 
 
@@ -73,44 +75,75 @@ def ConcatCSV():
 
 def SplitDataset():
     # 同一个患者不同时间的数据应该放在同一个数据集中，不然会导致数据泄露，包括在cv的过程中
+    # 0: 0.27 	1: 0.32 	2: 0.15 	3: 0.26
 
-    csv_path = r'D:\Data\renji\label.csv'
+    # csv_path = r'D:\Data\renji\label.csv'
+    csv_path = r'D:\Data\renji\train_name.csv'
     df = pd.read_csv(csv_path, index_col='CaseName')
     case_list = df.index.tolist()
     case_list_name = [case.split(' ')[-1] for case in case_list]  # 不重复的数据
-    repeat_case_name = [case for case in case_list_name if case_list_name.count(case) > 1]
+    repeat_case_name = sorted(set([case for case in case_list_name if case_list_name.count(case) > 1]))
+    shuffle(repeat_case_name)
+    train_repeat = repeat_case_name[: int(len(repeat_case_name)*0.8)]
+    test_repeat = repeat_case_name[int(len(repeat_case_name)*0.8):]
 
-    train = []
-    test = []
-    shuffle(case_list)
-    train_num = int(len(case_list) * 0.8)
-    test_num = int(len(case_list) - train_num)
-    for index, case in enumerate(case_list):
-        case_name = case.split(' ')[-1]
-        if case_name in repeat_case_name:
-            if case_name in train:
+    while True:
+        train = []
+        test = []
+        train_label = []
+        test_label = []
+        shuffle(case_list)
+        train_num = int(len(case_list) * 0.8)
+        test_num = int(len(case_list) - train_num)
+        for index, case in enumerate(case_list):
+            label = df.loc[case, 'Label']
+            case_name = case.split(' ')[-1]
+            if case_name in train_repeat:
                 train.append(case)
-            elif case_name in test:
+                train_label.append(label)
+            elif case_name in test_repeat:
                 test.append(case)
-            else:
+                test_label.append(label)
+            else: continue
+        for index, case in enumerate(case_list):
+            label = df.loc[case, 'Label']
+            case_name = case.split(' ')[-1]
+            if case_name not in train_repeat and case_name not in test_repeat:
                 if len(train) < train_num:
                     train.append(case)
+                    train_label.append(label)
                 else:
                     test.append(case)
-        else:
-            if len(train) < train_num:
-                train.append(case)
-            else:
-                test.append(case)
-    train_name = [case.split(' ')[-1] for case in train]
-    test_name = [case.split(' ')[-1] for case in test]
-    if len([case for case in train_name if case in test_name]):
-        print('Split successful!')
-        print('train case: {}; test case: {}'.format(len(train), len(test)))
-        train_df = pd.DataFrame({'CaseName': train}).T
-        train_df.to_csv(r'D:\Data\renji\train_name.csv')
-        test_df = pd.DataFrame({'CaseName': test}).T
-        test_df.to_csv(r'D:\Data\renji\test_name.csv')
+                    test_label.append(label)
+            else: continue
+
+        train_name = [case.split(' ')[-1] for case in train]
+        test_name = [case.split(' ')[-1] for case in test]
+        if len([case for case in train_name if case in test_name]) == 0:
+            train_label_per = [len([label for label in train_label if label == 0])/train_num,
+                               len([label for label in train_label if label == 1])/train_num,
+                               len([label for label in train_label if label == 2])/train_num,
+                               len([label for label in train_label if label == 3])/train_num]
+            test_label_per = [len([label for label in test_label if label == 0])/test_num,
+                              len([label for label in test_label if label == 1])/test_num,
+                              len([label for label in test_label if label == 2])/test_num,
+                              len([label for label in test_label if label == 3])/test_num]
+            per = [0.27, 0.32, 0.15, 0.26]
+            diff = []
+            for list in [train_label_per, test_label_per]:
+                diff.extend([abs(per[idx] - list[idx]) for idx in range(len(per))])
+            if (np.array(diff) < 0.01).all():
+                print(train_label_per)
+                print(test_label_per)
+                print(diff)
+                print('Split successful!')
+                print('train case: {}; test case: {}'.format(len(train), len(test)))
+
+                train_df = pd.DataFrame({'CaseName': train, 'Label': train_label})
+                train_df.to_csv(r'D:\Data\renji\train_name.csv', index=False)
+                test_df = pd.DataFrame({'CaseName': test, 'Label': test_label})
+                test_df.to_csv(r'D:\Data\renji\val_name.csv', index=False)
+                break
 # SplitDataset()
 
 
@@ -171,37 +204,40 @@ def SplitCV(cv_folder):
 
 
 def Statistics(data_path):
-    label_csv = r'D:\Data\renji\label.csv'
-    label_df = pd.read_csv(label_csv, index_col='CaseName')
-
-    dataset_df = pd.read_csv(data_path)
-    data_list = dataset_df.values.tolist()[0]
+    dataset_df = pd.read_csv(data_path, index_col='CaseName')
+    data_list = dataset_df.index.tolist()
     if len(data_list) == 1:
         data_list = dataset_df.loc[:, 'CaseName'].tolist()
     label1 = label2 = label3 = label0 = 0
     for case in data_list:
-        if label_df.loc[case]['Label'] == 0:
+        if dataset_df.loc[case]['Label'] == 0:
             label0 += 1
-        elif label_df.loc[case]['Label'] == 1:
+        elif dataset_df.loc[case]['Label'] == 1:
             label1 += 1
-        elif label_df.loc[case]['Label'] == 2:
+        elif dataset_df.loc[case]['Label'] == 2:
             label2 += 1
-        elif label_df.loc[case]['Label'] == 3:
+        elif dataset_df.loc[case]['Label'] == 3:
             label3 += 1
         else:
             print(case)
     print('label 0: {}\tlabel 1: {}\tlabel 2: {}\tlabel 3: {}'.format(label0, label1, label2, label3))
 
-def TestStat():
-    train_path = r'D:\Data\renji\train_name.csv'
-    cv1_train_path = r'D:\Data\renji\train-cv1.csv'
-    cv2_train_path = r'D:\Data\renji\train-cv2.csv'
-    cv3_train_path = r'D:\Data\renji\train-cv3.csv'
-    cv4_train_path = r'D:\Data\renji\train-cv4.csv'
-    cv5_train_path = r'D:\Data\renji\train-cv5.csv'
-    test_path = r'D:\Data\renji\test_name.csv'
 
-    data_path = [train_path, test_path, cv1_train_path, cv2_train_path, cv3_train_path, cv4_train_path, cv5_train_path]
+def TestStat():
+    # train_path = r'D:\Data\renji\train_name.csv'
+    # cv1_train_path = r'D:\Data\renji\train-cv1.csv'
+    # cv2_train_path = r'D:\Data\renji\train-cv2.csv'
+    # cv3_train_path = r'D:\Data\renji\train-cv3.csv'
+    # cv4_train_path = r'D:\Data\renji\train-cv4.csv'
+    # cv5_train_path = r'D:\Data\renji\train-cv5.csv'
+    # test_path = r'D:\Data\renji\test_name.csv'
+
+    # data_path = [train_path, test_path, cv1_train_path, cv2_train_path, cv3_train_path, cv4_train_path, cv5_train_path]
+    train_path = r'D:\Data\renji\train_name.csv'
+    val_path = r'D:\Data\renji\val_name.csv'
+    test_path = r'D:\Data\renji\test_name.csv'
+    data_path = [train_path, val_path, test_path]
+
     for path in data_path:
         Statistics(path)
-TestStat()
+# TestStat()
