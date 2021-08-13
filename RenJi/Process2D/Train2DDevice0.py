@@ -15,7 +15,8 @@ from CnnTools.T4T.Utility.Data import *
 from CnnTools.T4T.Utility.CallBacks import EarlyStopping
 from CnnTools.T4T.Utility.Initial import HeWeightInit
 
-from Network3D.ResNet3D import GenerateModel
+from RenJi.Network3D.ResNet3D import GenerateModel
+
 
 def ClearGraphPath(graph_path):
     if not os.path.exists(graph_path):
