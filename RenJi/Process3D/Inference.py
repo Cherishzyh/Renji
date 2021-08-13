@@ -1,17 +1,9 @@
-import os
-
-import matplotlib.pyplot as plt
-from scipy.stats import wilcoxon
-import pandas as pd
-from sklearn.metrics import confusion_matrix
-
 import torch
 from torch.utils.data import DataLoader
 
 from BasicTool.MeDIT.Others import IterateCase
 from CnnTools.T4T.Utility.Data import *
 from RenJi.Network3D.ResNet3D import GenerateModel
-# from MyDataLoader.Data import *
 
 from RenJi.Metric.ConfusionMatrix import F1Score
 
