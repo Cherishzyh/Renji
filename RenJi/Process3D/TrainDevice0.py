@@ -1,3 +1,4 @@
+import os.path
 import shutil
 
 import numpy as np
@@ -24,7 +25,7 @@ def ClearGraphPath(graph_path):
         os.mkdir(graph_path)
 
 
-def _GetLoader(sub_list, aug_param_config, input_shape, batch_size, shuffle):
+def _GetLoader(data_root, sub_list, aug_param_config, input_shape, batch_size, shuffle):
     data = DataManager(sub_list=sub_list, augment_param=aug_param_config)
 
     data.AddOne(Image2D(data_root + '/Npy2D', shape=input_shape))
@@ -33,7 +34,6 @@ def _GetLoader(sub_list, aug_param_config, input_shape, batch_size, shuffle):
     loader = DataLoader(data, batch_size=batch_size, shuffle=shuffle)
     batches = np.ceil(len(data.indexes) / batch_size)
     return loader, batches
-
 
 
 def Train(device, model_root, model_name, data_root):
@@ -70,8 +70,8 @@ def Train(device, model_root, model_name, data_root):
     val_case = [case for case in val_case.index if val_case.loc[case, 'Label'] in [1, 2]]
     # val_case = val_case.index.tolist()
 
-    train_loader, train_batches = _GetLoader(train_case, param_config, input_shape, batch_size, True)
-    val_loader, val_batches = _GetLoader(val_case, None, input_shape, batch_size, True)
+    train_loader, train_batches = _GetLoader(data_root, train_case, param_config, input_shape, batch_size, True)
+    val_loader, val_batches = _GetLoader(data_root, val_case, None, input_shape, batch_size, True)
 
     # no softmax or sigmoid
     model = GenerateModel(50, n_input_channels=1, n_classes=2).to(device)
@@ -150,48 +150,38 @@ def CheckInput():
     from BasicTool.MeDIT.Visualization import Imshow3DArray
     from BasicTool.MeDIT.Normalize import Normalize01
     torch.autograd.set_detect_anomaly(True)
-
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    input_shape = (30, 200, 200)
+    input_shape = (200, 200)
     batch_size = 4
+    data_root = r'Z:\RenJi'
 
-    random_3d_augment = {
-        'stretch_x': [0.8, 1.2],
-        'stretch_y': [0.8, 1.2],
-        'stretch_z': 1.0,
-        'shear': 0.,
-        'rotate_x_angle': 0,
-        'rotate_z_angle': [-10, 10],
-        'shift_x': [-0.1, 0.1],
-        'shift_y': [-0.1, 0.1],
-        'shift_z': 0,
-        'horizontal_flip': False,
-        'vertical_flip': False,
-        'slice_flip': False,
-
-        'bias_center': [[0.25, 0.75], [0.25, 0.75]],  # 0代表在center在中央，1代表全图像随机取，0.5代表在0.25-0.75范围内随机取
-        'bias_drop_ratio': [0, 0.5],  # 随机生成0.5及以下的drop ratio
-        'noise_sigma': [0., 0.03],
-        'factor': [0.8, 1.2],
-        'gamma': [0.8, 1.2],
-
-        'elastic': False
+    param_config = {
+        RotateTransform.name: {'theta': ['uniform', -10, 10]},
+        ShiftTransform.name: {'horizontal_shift': ['uniform', -0.05, 0.05],
+                              'vertical_shift': ['uniform', -0.05, 0.05]},
+        ZoomTransform.name: {'horizontal_zoom': ['uniform', 0.95, 1.05],
+                             'vertical_zoom': ['uniform', 0.95, 1.05]},
+        FlipTransform.name: {'horizontal_flip': ['choice', True, False]},
+        BiasTransform.name: {'center': ['uniform', -1., 1., 2],
+                             'drop_ratio': ['uniform', 0., 1.]},
+        NoiseTransform.name: {'noise_sigma': ['uniform', 0., 0.03]},
+        ContrastTransform.name: {'factor': ['uniform', 0.8, 1.2]},
+        GammaTransform.name: {'gamma': ['uniform', 0.8, 1.2]},
+        ElasticTransform.name: ['elastic', 1, 0.1, 256]
     }
 
-    sub_train = pd.read_csv(r'D:\Data\renji\Model\ResNet3D_0805\train-cv1.csv')
-    sub_train = sub_train.loc[:, 'CaseName'].tolist()
-    train_loader, train_batches = _GetLoader(sub_train, random_3d_augment, input_shape, batch_size, True)
+    sub_train = pd.read_csv(os.path.join(data_root, 'train_name.csv'), index_col='CaseName')
+    sub_train = sub_train.index.tolist()
+    train_loader, train_batches = _GetLoader(data_root, sub_train, param_config, input_shape, batch_size, True)
 
     for ind, (inputs, outputs) in enumerate(train_loader):
-        # inputs = MoveTensorsToDevice(inputs, device)
-        # outputs = MoveTensorsToDevice(outputs, device)
         for index in range(inputs.shape[0]):
-            print(inputs[0].shape)
-            # Imshow3DArray(Normalize01(np.squeeze(inputs[index])).transpose(1, 2, 0))
+            Imshow3DArray(Normalize01(np.squeeze(inputs[index])).transpose(1, 2, 0))
 
 
 if __name__ == '__main__':
+    # in own computer
     # CheckInput()
+
     model_root = r'/home/zhangyihong/Documents/RenJi/Model'
     data_root = r'/home/zhangyihong/Documents/RenJi'
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

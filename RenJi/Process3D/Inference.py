@@ -94,7 +94,7 @@ def ModelEnhanced(device, model_name, weights_list=None, is_test=False):
     return mean_pred, mean_label
 
 
-def ModelInference(device, model_name, data_type='test', n_classes=4, weights_list=None):
+def Inference(device, model_name, data_type='test', n_classes=4, weights_list=None):
     device = device
     input_shape = (200, 200)
     batch_size = 24
@@ -112,17 +112,17 @@ def ModelInference(device, model_name, data_type='test', n_classes=4, weights_li
         weights_path = weights_list
 
     print(weights_path.name)
-    model.load_state_dict(torch.load(str(weights_path), map_location='cuda:0'))
+    model.load_state_dict(torch.load(str(weights_path)))
 
     pred_list, label_list = [], []
     model.eval()
     sub_list = pd.read_csv(os.path.join(data_root, '{}_name.csv'.format(data_type)), index_col='CaseName')
-    # sub_list = [case for case in sub_list.index if sub_list.loc[case, 'Label'] < 3]
-    sub_list = sub_list.index.tolist()
+    sub_list = [case for case in sub_list.index if sub_list.loc[case, 'Label'] < 3]
+    # sub_list = sub_list.index.tolist()
 
     data_loader, batches = _GetLoader(sub_list, data_root, input_shape, batch_size)
     with torch.no_grad():
-        for inputs, outputs in data_loader:
+        for i, (inputs, outputs) in enumerate(data_loader):
             #######################################
             outputs[outputs < 3] = 1
             outputs[outputs == 3] = 0
@@ -132,17 +132,21 @@ def ModelInference(device, model_name, data_type='test', n_classes=4, weights_li
             inputs = MoveTensorsToDevice(inputs, device)
             outputs = MoveTensorsToDevice(outputs, device)
             preds = model(inputs)
+            # if outputs == 1 and torch.argmax(torch.softmax(preds, dim=1), dim=1) == 2:
+            #     print(i)
 
             pred_list.extend(torch.argmax(torch.softmax(preds, dim=1), dim=1).cpu().data.numpy().tolist())
             label_list.extend(outputs.cpu().data.numpy().astype(int).squeeze().tolist())
+            # pred_list.append(torch.argmax(torch.softmax(preds, dim=1), dim=1).cpu().data.numpy().tolist())
+            # label_list.append(outputs.cpu().data.numpy().astype(int).squeeze().tolist())
 
     del model, weights_path
 
     precision, recall, f1_score, cm = F1Score(label_list, pred_list)
-    print(precision)
-    print(recall)
-    print(f1_score)
-    print(cm)
+    # print(precision)
+    # print(recall)
+    # print(f1_score)
+    # print(cm)
 
     return cm
 
@@ -156,5 +160,5 @@ if __name__ == '__main__':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     # ModelEnhanced(device, 'ResNet3D_0812', weights_list=None, is_test=True)
-    cm = ModelInference(device, 'ResNet3D_0812_0_12', data_type='test', n_classes=2, weights_list=None)
-    ShowCM(cm)
+    cm = Inference(device, 'ResNet3D_0812_012', data_type='test', n_classes=4, weights_list=None)
+    # ShowCM(cm)

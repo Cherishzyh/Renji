@@ -13,7 +13,10 @@ def F1Score(y_true, y_pred):
         R = cm[cat, cat] / sum(cm[:, cat])
         precision.append(P)
         recall.append(R)
-        f1_score.append(2 * P * R / (P + R))
+        if P == 0 and R == 0:
+            f1_score.append(0.)
+        else:
+            f1_score.append(2 * P * R / (P + R))
     return precision, recall, f1_score, cm
 
 
@@ -22,5 +25,6 @@ if __name__ == "__main__":
     y_pred = np.array([1, 1, 2, 3, 2, 0, 1, 3, 1, 2])
 
     p, r, fl, cm = F1Score(y_true, y_pred)
+    print(p)
 
 
