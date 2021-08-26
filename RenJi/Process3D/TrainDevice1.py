@@ -150,24 +150,25 @@ def CheckInput():
     input_shape = (200, 200)
     batch_size = 12
 
-    train_case = pd.read_csv(os.path.join(r'/home/zhangyihong/Documents/RenJi', 'train_name.csv'), index_col='CaseName')
+    train_case = pd.read_csv(os.path.join(r'Z:\RenJi', 'train_name.csv'), index_col='CaseName')
     train_case = train_case.index.tolist()
 
     train_loader, train_batches = _GetLoader(train_case, None, input_shape, batch_size, True)
-    label = []
 
     for ind, (inputs, outputs) in enumerate(train_loader):
-        label.extend(sorted(outputs.tolist()))
-    print(label.count(0.0), label.count(1.0), label.count(2.0), label.count(3.0))
+        inputs = abs(inputs - inputs[:, 0:1])
+        for idx in range(inputs.shape[0]):
+            Imshow3DArray(Normalize01(inputs[idx]).transpose((1, 2, 0)))
 
 
 if __name__ == '__main__':
-    data_root = r'/home/zhangyihong/Documents/RenJi'
+    data_root = r'Z:\RenJi'
 
     model_root = r'/home/zhangyihong/Documents/RenJi/Model'
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    Train(device, model_root, 'ResNet3D_0812_0_12', data_root)
+    # Train(device, model_root, 'ResNet3D_0812_0_12', data_root)
     # train_case = pd.read_csv(os.path.join(data_root, 'train_name.csv'), index_col='CaseName')
     # train_case = train_case.index.tolist()
+    CheckInput()

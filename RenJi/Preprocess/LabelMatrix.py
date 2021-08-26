@@ -241,3 +241,24 @@ def TestStat():
     for path in data_path:
         Statistics(path)
 # TestStat()
+
+
+def LabelTransform():
+    label_path = r'/home/zhangyihong/Documents/RenJi/label.csv'
+    df = pd.read_csv(label_path, index_col='CaseName')
+    case_list = []
+    label_list = []
+    for case in df.index.tolist():
+        case_list.append(case)
+        label = df.loc[case, 'Label']
+        if label == 0:
+            label_list.append(1)
+        elif label == 1:
+            label_list.append(2)
+        elif label == 2:
+            label_list.append(3)
+        elif label == 3:
+            label_list.append(0)
+    new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
+    new_df.to_csv(r'/home/zhangyihong/Documents/RenJi/label_norm.csv', index=False)
+LabelTransform()

@@ -23,7 +23,7 @@ class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, planes, stride=1, downsample=None):
         super().__init__()
-
+        self.conv1x1x1 = Conv1x1x1(planes+1, planes)
         self.conv1 = Conv3x3x3(in_planes, planes, stride)
         self.bn1 = nn.BatchNorm3d(planes)
         self.relu = nn.ReLU(inplace=True)
@@ -32,23 +32,31 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-    def forward(self, x):
-        residual = x
+    def forward(self, inputs):
+        residual = inputs[0]
+        atten_map = inputs[1]
 
-        out = self.conv1(x)
+
+        out = self.conv1(inputs[0])
         out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
 
+        shape = out.shape[2:]
+        atten_map = torch.nn.functional.interpolate(atten_map, size=shape, mode='trilinear', align_corners=True)
+
+        out = torch.cat([out, atten_map], dim=1)
+        out = self.conv1x1x1(out)
+
         if self.downsample is not None:
-            residual = self.downsample(x)
+            residual = self.downsample(inputs[0])
 
         out += residual
         out = self.relu(out)
 
-        return out
+        return [out, inputs[1]]
 
 
 class Bottleneck(nn.Module):
@@ -56,7 +64,7 @@ class Bottleneck(nn.Module):
 
     def __init__(self, in_planes, planes, stride=1, downsample=None):
         super().__init__()
-
+        self.conv1x1x1 = Conv1x1x1(planes * self.expansion + 1, planes * self.expansion)
         self.conv1 = Conv1x1x1(in_planes, planes)
         self.bn1 = nn.BatchNorm3d(planes)
         self.conv2 = Conv3x3x3(planes, planes, stride)
@@ -67,10 +75,11 @@ class Bottleneck(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-    def forward(self, x):
-        residual = x
+    def forward(self, inputs):
+        residual = inputs[0]
+        atten_map = inputs[1]
 
-        out = self.conv1(x)
+        out = self.conv1(inputs[0])
         out = self.bn1(out)
         out = self.relu(out)
 
@@ -81,19 +90,25 @@ class Bottleneck(nn.Module):
         out = self.conv3(out)
         out = self.bn3(out)
 
+        shape = out.shape[2:]
+        atten_map = torch.nn.functional.interpolate(atten_map, size=shape, mode='trilinear', align_corners=True)
+
+        out = torch.cat([out, atten_map], dim=1)
+        out = self.conv1x1x1(out)
+
         if self.downsample is not None:
-            residual = self.downsample(x)
+            residual = self.downsample(inputs[0])
 
         out += residual
         out = self.relu(out)
 
-        return out
+        return [out, inputs[1]]
 
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, block_inplanes, n_input_channels=3, conv1_t_size=7, conv1_t_stride=1,
-                 no_max_pool=False, shortcut_type='B', widen_factor=1.0, n_classes=400):
+    def __init__(self, block, layers, block_inplanes, n_classes, n_input_channels=3, conv1_t_size=7, conv1_t_stride=1,
+                 no_max_pool=False, shortcut_type='B', widen_factor=1.0):
         super().__init__()
 
         block_inplanes = [int(x * widen_factor) for x in block_inplanes]
@@ -113,7 +128,11 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, block_inplanes[3], layers[3], shortcut_type, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, 1))
-        self.fc = nn.Linear(block_inplanes[3] * block.expansion, n_classes)
+        self.fc1 = nn.Sequential(nn.Linear(block_inplanes[3] * block.expansion,
+                                           block_inplanes[0] * block.expansion),
+                                 nn.Dropout(0.5),
+                                 nn.ReLU(inplace=True))
+        self.fc2 = nn.Linear(block_inplanes[0] * block.expansion, n_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -156,22 +175,22 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, atten_map):
         x = self.conv1(x)                #(batch, 64,  30,  100, 100)
         x = self.bn1(x)                  #(batch, 64,  30,  100, 100)
         x = self.relu(x)
         if not self.no_max_pool:
             x = self.maxpool(x)          #(batch, 64,  15,  50, 50)
 
-        x = self.layer1(x)               #(batch, 256,  15, 50, 50)
+        x = self.layer1([x, atten_map])               #(batch, 256,  15, 50, 50)
         x = self.layer2(x)               #(batch, 512,  8,  25, 25)
         x = self.layer3(x)               #(batch, 1024, 4,  13, 13)
         x = self.layer4(x)               #(batch, 2048, 2,  7,  7)
 
-        x = self.avgpool(x)              #(batch, 2048, 1,  1,  1)
+        x = self.avgpool(x[0])              #(batch, 2048, 1,  1,  1)
 
         x = x.view(x.size(0), -1)        #(batch, 2048)
-        x = self.fc(x)                   #(batch, n_classes)
+        x = self.fc2(self.fc1(x))                   #(batch, n_classes)
 
         return x
 
@@ -202,5 +221,5 @@ if __name__ == '__main__':
     #              no_max_pool=False, shortcut_type='B', widen_factor=1.0, n_classes=4)
     model = GenerateModel(50, n_input_channels=1, n_classes=4)
     input_image = torch.from_numpy(np.random.rand(3, 1, 30, 200, 200)).float()
-    pred = model(input_image)
+    pred = model(input_image, input_image)
     print(pred.shape)

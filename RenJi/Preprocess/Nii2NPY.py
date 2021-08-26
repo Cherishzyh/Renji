@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 
 import pandas as pd
-from MeDIT.Visualization import FlattenImages
-from MeDIT.Normalize import Normalize01, NormalizeZ
+from BasicTool.MeDIT.Visualization import FlattenImages
+from BasicTool.MeDIT.Normalize import Normalize01, NormalizeZ
 
 
 ############################################## Tools  ##################################################################
@@ -290,6 +290,16 @@ def CheckNPY():
         # plt.close()
 
 
+def SelectSlice():
+    npy_2d = r'/home/zhangyihong/Documents/RenJi/Npy2D'
+    save_folder = r'/home/zhangyihong/Documents/RenJi/Npy6Slice'
+    for case in os.listdir(npy_2d):
+        case_path = os.path.join(npy_2d, case)
+        array = np.load(case_path)
+        new_array = np.concatenate([array[14:17], array[-3:, ...]], axis=0)
+        np.save(os.path.join(save_folder, case), new_array)
+
+
 
 if __name__ == '__main__':
     # SaveImage()
@@ -298,8 +308,8 @@ if __name__ == '__main__':
     # CheckNo2CHData()
     # CheckNPY()
     # AddNewAxis()
-    DropNewAxis()
-
+    # DropNewAxis()
+    SelectSlice()
 
 
 

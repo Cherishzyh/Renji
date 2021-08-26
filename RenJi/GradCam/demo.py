@@ -60,12 +60,11 @@ def demo(model_root, data_root, device, n_classes):
     data.AddOne(CnnTools.T4T.Utility.Data.Label(data_root + '/label.csv'), is_input=False)
     data_loader = DataLoader(data, batch_size=1, shuffle=False)
     for i, (inputs, outputs) in enumerate(data_loader):
-        if i > 66:
+        if i > 67:
             inputs = inputs[:, np.newaxis, ...]
             label = torch.zeros(n_classes)
             label[int(outputs)] = 1
             inputs = CnnTools.T4T.Utility.Data.MoveTensorsToDevice(inputs, device)
-            # outputs = CnnTools.T4T.Utility.Data.MoveTensorsToDevice(outputs, device).long()
 
             prob, gradcam = demo_my(model, inputs, label)
 
@@ -78,9 +77,8 @@ def demo(model_root, data_root, device, n_classes):
             plt.gca().xaxis.set_major_locator(plt.NullLocator())
             plt.gca().yaxis.set_major_locator(plt.NullLocator())
             # plt.show()
-            plt.savefig(os.path.join(r'/home/zhangyihong/Documents/RenJi/Model/ResNet3D_0812/image', '{}.jpg'.format(i)),
+            plt.savefig(os.path.join(r'/home/zhangyihong/Documents/RenJi/Model/ResNet3D_0819/image', '{}.jpg'.format(i)),
                         aspect='normal', bbox_inches='tight', pad_inches=0.0)
-
             plt.close()
 
 
@@ -92,7 +90,8 @@ if __name__ == '__main__':
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # for case in range(354):
-    demo(os.path.join(model_root, 'ResNet3D_0812'), data_root, device, n_classes=4)
+    demo(os.path.join(model_root, 'ResNet3D_0819'), data_root, device, n_classes=4)
+
 
 
 

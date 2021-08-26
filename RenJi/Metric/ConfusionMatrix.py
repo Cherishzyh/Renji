@@ -2,8 +2,8 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 
 
-def F1Score(y_true, y_pred):
-    cm = confusion_matrix(y_true, y_pred)
+def F1Score(y_true, y_pred, label=None):
+    cm = confusion_matrix(y_true, y_pred, labels=label)
     categories = cm.shape[0]
     precision = []
     recall = []

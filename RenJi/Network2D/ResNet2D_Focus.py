@@ -21,7 +21,7 @@ class BasicBlock(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
-        self.conv1x1 = conv1x1(30, planes)
+        self.conv1x1 = conv1x1(9, planes)
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
@@ -60,7 +60,7 @@ class Bottleneck(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
-        self.conv1x1 = conv1x1(30, planes*self.expansion)
+        self.conv1x1 = conv1x1(9, planes*self.expansion)
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
@@ -196,6 +196,6 @@ if __name__ == '__main__':
     model = resnet50(input_channels=9, num_classes=4).to(device)
     print(model)
     inputs = torch.randn(1, 9, 184, 184).to(device)
-    atten_map = torch.randn(1, 30, 184, 184).to(device)
+    atten_map = torch.randn(1, 9, 184, 184).to(device)
     prediction = model(inputs, atten_map)
     print(prediction.shape)
