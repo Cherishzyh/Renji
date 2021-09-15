@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -185,3 +186,10 @@ def resnet152(**kwargs):
     """
     model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
     return model
+
+if __name__ == '__main__':
+    model = resnet50(input_channels=5, num_classes=4)
+    print(model)
+    x = torch.randn(1, 5, 200, 200)
+    y = model(x)
+    print(y.size())

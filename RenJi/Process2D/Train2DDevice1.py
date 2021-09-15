@@ -5,14 +5,14 @@ from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
 
-from BasicTool.MeDIT.Augment import *
-from BasicTool.MeDIT.Others import MakeFolder
-from BasicTool.MeDIT.Normalize import Normalize01
+from MeDIT.Augment import *
+from MeDIT.Others import MakeFolder
+from MeDIT.Normalize import Normalize01
 
 
-from CnnTools.T4T.Utility.Data import *
-from CnnTools.T4T.Utility.CallBacks import EarlyStopping
-from CnnTools.T4T.Utility.Loss import CrossEntropy
+from T4T.Utility.Data import *
+from T4T.Utility.CallBacks import EarlyStopping
+from T4T.Utility.Loss import CrossEntropy
 
 from RenJi.Network2D.ResNet2D import resnet50
 # from RenJi.Network2D.ResNet2D_Focus import resnet50
@@ -193,4 +193,4 @@ if __name__ == '__main__':
     data_root = r'/home/zhangyihong/Documents/RenJi'
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    Train(device, model_root, 'ResNet_0826_5slice_bs24', data_root)
+    Train(device, model_root, 'ResNet_0903', data_root)

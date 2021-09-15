@@ -149,9 +149,9 @@ def SplitDataset():
 
 def SplitCV(cv_folder):
     # 同一个患者不同时间的数据应该放在同一个cv中，不然会导致数据泄露
-    csv_path = r'D:\Data\renji\train_name.csv'
-    df = pd.read_csv(csv_path)
-    case_list = df.values.tolist()[0]
+    csv_path = r'Z:\RenJi\alltrain_name.csv'
+    df = pd.read_csv(csv_path, index_col='CaseName')
+    case_list = df.index.tolist()
     shuffle(case_list)
     case_list_name = [case.split(' ')[-1] for case in case_list]
     repeat_case_name = list(set([case for case in case_list_name if case_list_name.count(case) > 1])) # 重复的数据
@@ -189,7 +189,6 @@ def SplitCV(cv_folder):
                 continue
             else:
                 cv += 1
-    print()
 
     for index in range(cv_folder):
         for case in cv_name_list[index]:
@@ -199,8 +198,8 @@ def SplitCV(cv_folder):
 
     for index in range(cv_folder):
         df = pd.DataFrame({'CaseName': cv_list[index]})
-        df.to_csv(r'D:\Data\renji\train-cv{}.csv'.format(index+1), index=False)
-# SplitCV(5)
+        df.to_csv(r'Z:\RenJi\train-cv{}.csv'.format(index+1), index=False)
+SplitCV(5)
 
 
 def Statistics(data_path):
@@ -261,4 +260,4 @@ def LabelTransform():
             label_list.append(0)
     new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
     new_df.to_csv(r'/home/zhangyihong/Documents/RenJi/label_norm.csv', index=False)
-LabelTransform()
+# LabelTransform()

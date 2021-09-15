@@ -1,19 +1,24 @@
-import os
+import os.path
 import shutil
 
-
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
+from sklearn.metrics import roc_auc_score
+
+from MeDIT.Augment import *
+from MeDIT.Others import MakeFolder, CopyFile
 
 from T4T.Utility.Data import *
 from T4T.Utility.CallBacks import EarlyStopping
 from T4T.Utility.Initial import HeWeightInit
 
-from MeDIT.Others import MakeFolder, CopyFile
-from MeDIT.Augment import *
-
-from RenJi.Network3D.ResNet3D import GenerateModel
+# from RenJi.Network2D.ResNet2D import resnet50
+# from RenJi.Network2D.ResNet2D_Focus import resnet50
+# from RenJi.Network2D.AttenBlock import resnet50
+# from RenJi.Network2D.ResNet2D_CBAM import resnet50
+from RenJi.Network2D.ResNeXt2D import ResNeXt
 
 
 def ClearGraphPath(graph_path):
@@ -38,29 +43,17 @@ def _GetLoader(data_root, sub_list, aug_param_config, input_shape, batch_size, s
     return loader, batches
 
 
-def _GetCV(label_root, cv):
-    all_label_df = os.path.join(label_root, 'alltrain_name.csv')
-    all_case = pd.read_csv(all_label_df, index_col='CaseName')
-    all_case = all_case.index.tolist()
-
-    cv_label = os.path.join(label_root, 'train-cv{}.csv'.format(cv))
-    cv_val = pd.read_csv(cv_label)
-    cv_val = cv_val.loc[:, 'CaseName'].tolist()
-
-    cv_train = [case for case in all_case if case not in cv_val]
-
-    return cv_train, cv_val
-
 
 def EnsembleTrain(device, model_root, model_name, data_root):
     torch.autograd.set_detect_anomaly(True)
 
-    device = device
     input_shape = (150, 150)
     total_epoch = 10000
-    batch_size = 12
-    model_folder = os.path.join(model_root, model_name)
-    # ClearGraphPath(model_folder)
+    batch_size = 36
+
+    model_folder = MakeFolder(model_root + '/{}'.format(model_name))
+    if os.path.exists(model_folder):
+        ClearGraphPath(model_folder)
 
     param_config = {
         RotateTransform.name: {'theta': ['uniform', -10, 10]},
@@ -77,20 +70,22 @@ def EnsembleTrain(device, model_root, model_name, data_root):
         ElasticTransform.name: ['elastic', 1, 0.1, 256]
     }
 
+    alltrain_list = pd.read_csv(os.path.join(data_root, 'alltrain_name.csv'), index_col='CaseName').index.tolist()
     for cv_index in range(1, 6):
-        sub_model_folder = os.path.join(model_folder, 'CV_{}'.format(cv_index))
-        sub_train, sub_val = _GetCV(data_root, cv_index)
+        sub_model_folder = MakeFolder(model_folder / 'CV_{}'.format(cv_index))
+        sub_val = pd.read_csv(os.path.join(data_root, 'train-cv{}.csv'.format(cv_index)), index_col='CaseName').index.tolist()
+        sub_train = [case for case in alltrain_list if case not in sub_val]
         train_loader, train_batches = _GetLoader(data_root, sub_train, param_config, input_shape, batch_size, True)
-        val_loader, val_batches = _GetLoader(data_root, sub_val, param_config, input_shape, batch_size, True)
+        val_loader, val_batches = _GetLoader(data_root, sub_val, None, input_shape, batch_size, True)
 
-        # no softmax or sigmoid
-        model = GenerateModel(50, n_input_channels=1, n_classes=4).to(device)
+        model = ResNeXt(input_channels=5, num_classes=2, num_blocks=[3, 4, 6, 3]).to(device)
+        model.apply(HeWeightInit)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         ce_loss = torch.nn.CrossEntropyLoss()
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.5, verbose=True)
-        early_stopping = EarlyStopping(store_path=str(Path(sub_model_folder) / '{}-{:.6f}.pt'), patience=50, verbose=True)
-        writer = SummaryWriter(log_dir=str(Path(sub_model_folder) / 'log'), comment='Net')
+        early_stopping = EarlyStopping(store_path=str(sub_model_folder / '{}-{:.6f}.pt'), patience=50, verbose=True)
+        writer = SummaryWriter(log_dir=str(sub_model_folder / 'log'), comment='Net')
 
         for epoch in range(total_epoch):
             train_loss, val_loss = 0., 0.
@@ -100,15 +95,17 @@ def EnsembleTrain(device, model_root, model_name, data_root):
             model.train()
             for ind, (inputs, outputs) in enumerate(train_loader):
                 image = inputs[0] * inputs[1]
-                image = torch.unsqueeze(image, dim=1)
+                image = torch.cat([image[:, 9: 12], image[:, -2:]], dim=1)
                 image = MoveTensorsToDevice(image, device)
+                outputs[outputs <= 1] = 0
+                outputs[outputs >= 2] = 1
                 outputs = MoveTensorsToDevice(outputs, device)
 
                 preds = model(image)
 
                 optimizer.zero_grad()
-                loss = ce_loss(preds, outputs.long())
 
+                loss = ce_loss(preds, outputs.long())
                 loss.backward()
                 optimizer.step()
 
@@ -124,7 +121,10 @@ def EnsembleTrain(device, model_root, model_name, data_root):
             with torch.no_grad():
                 for ind, (inputs, outputs) in enumerate(val_loader):
                     image = inputs[0] * inputs[1]
-                    image = torch.unsqueeze(image, dim=1)
+                    image = torch.cat([image[:, 9: 12], image[:, -2:]], dim=1)
+                    outputs[outputs <= 1] = 0
+                    outputs[outputs >= 2] = 1
+                    # outputs = torch.zeros(outputs.shape[0], 4).scatter_(1, torch.unsqueeze(outputs, dim=1).long(), 1)
 
                     image = MoveTensorsToDevice(image, device)
                     outputs = MoveTensorsToDevice(outputs, device)
@@ -138,8 +138,10 @@ def EnsembleTrain(device, model_root, model_name, data_root):
                     val_pred.extend(torch.argmax(torch.softmax(preds, dim=1), dim=1).cpu().detach().numpy().tolist())
                     val_label.extend(outputs.cpu().data.numpy().astype(int).squeeze().tolist())
 
-            val_acc = sum([1 for index in range(len(val_label)) if val_label[index] == val_pred[index]]) / len(val_label)
+            val_acc = sum([1 for index in range(len(val_label)) if val_label[index] == val_pred[index]]) / len(
+                val_label)
 
+            # Save Tensor Board
             for index, (name, param) in enumerate(model.named_parameters()):
                 if 'bn' not in name:
                     writer.add_histogram(name + '_data', param.cpu().detach().numpy(), epoch + 1)
@@ -163,57 +165,13 @@ def EnsembleTrain(device, model_root, model_name, data_root):
 
             writer.flush()
         writer.close()
+
         del writer, optimizer, scheduler, early_stopping, model
-        break
-
-
-def CheckInput():
-    from BasicTool.MeDIT.Visualization import Imshow3DArray
-    from BasicTool.MeDIT.Normalize import Normalize01
-    torch.autograd.set_detect_anomaly(True)
-
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    input_shape = (30, 200, 200)
-    batch_size = 4
-
-    random_3d_augment = {
-        'stretch_x': [0.8, 1.2],
-        'stretch_y': [0.8, 1.2],
-        'stretch_z': 1.0,
-        'shear': 0.,
-        'rotate_x_angle': 0,
-        'rotate_z_angle': [-10, 10],
-        'shift_x': [-0.1, 0.1],
-        'shift_y': [-0.1, 0.1],
-        'shift_z': 0,
-        'horizontal_flip': False,
-        'vertical_flip': False,
-        'slice_flip': False,
-
-        'bias_center': [[0.25, 0.75], [0.25, 0.75]],  # 0代表在center在中央，1代表全图像随机取，0.5代表在0.25-0.75范围内随机取
-        'bias_drop_ratio': [0, 0.5],  # 随机生成0.5及以下的drop ratio
-        'noise_sigma': [0., 0.03],
-        'factor': [0.8, 1.2],
-        'gamma': [0.8, 1.2],
-
-        'elastic': False
-    }
-
-    sub_train = pd.read_csv(r'D:\Data\renji\Model\ResNet3D_0805\train-cv1.csv')
-    sub_train = sub_train.loc[:, 'CaseName'].tolist()
-    train_loader, train_batches = _GetLoader(sub_train, random_3d_augment, input_shape, batch_size, True)
-
-    for ind, (inputs, outputs) in enumerate(train_loader):
-        # inputs = MoveTensorsToDevice(inputs, device)
-        # outputs = MoveTensorsToDevice(outputs, device)
-        for index in range(inputs.shape[0]):
-            print(inputs[0].shape)
-            # Imshow3DArray(Normalize01(np.squeeze(inputs[index])).transpose(1, 2, 0))
 
 
 if __name__ == '__main__':
-    model_root = r'/home/zhangyihong/Documents/RenJi/Model'
+    model_root = r'/home/zhangyihong/Documents/RenJi/Model2D'
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    EnsembleTrain(device, model_root, 'ResNet3D_0914_mask_cv', data_root)
+    EnsembleTrain(device, model_root, 'ResNeXt_0915_5slice_cv_2cl', data_root)

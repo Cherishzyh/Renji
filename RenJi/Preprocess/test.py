@@ -4,6 +4,8 @@ import shutil
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import ndimage
+from copy import deepcopy
 from pathlib import Path
 
 from BasicTool.MeDIT.Visualization import FlattenImages
@@ -210,3 +212,42 @@ def Check():
         else:
             print(case, '\t', data.shape)
 # Check()
+
+
+def DealWithDifference():
+    from BasicTool.MeDIT.Normalize import Normalize01
+    from BasicTool.MeDIT.Visualization import Imshow3DArray
+    # def _KeepLargest(mask):
+    #     new_mask = np.zeros(mask.shape)
+    #     label_im, nb_labels = ndimage.label(mask)
+    #     Imshow3DArray(Normalize01(label_im.transpose((1, 2, 0))))
+    #     index_list = [index for index in range(1, nb_labels + 1) if (label_im == index).sum() > 100]
+    #     for index in index_list:
+    #         new_mask[label_im == index + 1] = 1
+    #     return label_im, nb_labels, new_mask
+
+    data_folder = r'Z:\RenJi\Npy2D'
+    for case in os.listdir(data_folder):
+        case_path = os.path.join(data_folder, case)
+        data = np.load(case_path)
+        diff_data = data - data[0]
+        diff_data = Normalize01(diff_data)
+        # diff_data = np.clip(data, a_min=np.percentile(diff_data, 0.01), a_max=np.percentile(diff_data, 99.9))
+        # plt.hist(diff_data.flatten(), bins=20)
+        # plt.show()
+        threshold = np.percentile(diff_data, 90)
+        thres_diff = deepcopy(diff_data)
+        thres_diff[thres_diff < threshold] = 0
+        thres_diff[thres_diff >= threshold] = 1
+        new_mask = ndimage.median_filter(thres_diff, size=7)
+        Imshow3DArray(Normalize01(new_mask.transpose((1, 2, 0))))
+        # new_mask = thres_diff
+        # _, _, new_mask = _KeepLargest(thres_diff)
+        # Imshow3DArray(np.concatenate([Normalize01(data.transpose((1, 2, 0))), Normalize01(diff_data.transpose((1, 2, 0)))], axis=1),
+        #               roi=np.concatenate([Normalize01(new_mask.transpose((1, 2, 0))), Normalize01(new_mask.transpose((1, 2, 0)))], axis=1))
+# DealWithDifference()
+
+
+def SaveDiff():
+    save_folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\DifferenceImage'
+
