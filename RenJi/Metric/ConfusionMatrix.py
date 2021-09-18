@@ -1,5 +1,6 @@
 import numpy as np
-from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score
 
 
 def F1Score(y_true, y_pred, label=None):
@@ -18,6 +19,15 @@ def F1Score(y_true, y_pred, label=None):
         else:
             f1_score.append(2 * P * R / (P + R))
     return precision, recall, f1_score, cm
+
+def AUC(y_true, y_pred):
+    fpn, sen, the = roc_curve(y_true, y_pred)
+    auc = roc_auc_score(y_true, y_pred)
+    return
+
+
+    pass
+
 
 
 if __name__ == "__main__":

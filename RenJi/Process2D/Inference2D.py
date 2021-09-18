@@ -1,6 +1,8 @@
 import os
 
 import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_auc_score, roc_curve
 import torch
 from torch.utils.data import DataLoader
 
@@ -43,7 +45,6 @@ def Inference(device, model_name, data_type='test', n_classes=4, weights_list=No
 
     model_folder = os.path.join(model_root, model_name)
 
-    # model = resnet50(input_channels=5, num_classes=n_classes).to(device)
     model = ResNeXt(input_channels=5, num_classes=4, num_blocks=[3, 4, 6, 3]).to(device)
     if weights_list is None:
         weights_list = [one for one in IterateCase(model_folder, only_folder=False, verbose=0) if one.is_file()]
@@ -126,7 +127,7 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
     cv_folder_list = [one for one in IterateCase(model_folder, only_folder=True, verbose=0)]
     cv_pred_list, cv_label_list = [], []
     for cv_index, cv_folder in enumerate(cv_folder_list):
-        model = ResNeXt(input_channels=5, num_classes=4, num_blocks=[3, 4, 6, 3]).to(device)
+        model = ResNeXt(input_channels=5, num_classes=2, num_blocks=[3, 4, 6, 3]).to(device)
         if weights_list is None:
             one_fold_weights_list = [one for one in IterateCase(cv_folder, only_folder=False, verbose=0) if one.is_file()]
             one_fold_weights_list = sorted(one_fold_weights_list,  key=lambda x: os.path.getctime(str(x)))
@@ -143,6 +144,8 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
             image = inputs[0] * inputs[1]
             image = torch.cat([image[:, 9: 12], image[:, -2:]], dim=1)
             image = MoveTensorsToDevice(image, device)
+            outputs[outputs <= 1] = 0
+            outputs[outputs >= 2] = 1
 
             preds = model(image)
 
@@ -159,29 +162,43 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
 
     cv_pred = np.array(cv_pred_list)
     cv_label = np.array(cv_label_list)
-    mean_pred = np.argmax(np.sum(cv_pred, axis=0), axis=1)
+    mean_pred = np.mean(cv_pred, axis=0)
     mean_label = np.mean(cv_label, axis=0)
+    np.save(os.path.join(model_folder, '{}_preds.npy'.format(data_type)), mean_pred)
+    np.save(os.path.join(model_folder, '{}_label.npy'.format(data_type)), mean_label)
+    return mean_label, mean_pred
 
-    precision, recall, f1_score, cm = F1Score(mean_label.tolist(), mean_pred.tolist())
 
-    print([float('{:.3f}'.format(i)) for i in precision])
-    print([float('{:.3f}'.format(i)) for i in recall])
-    print([float('{:.3f}'.format(i)) for i in f1_score])
-    print(cm)
-    return cm
+def Result4NPY(model_folder, data_type):
+    pred = np.load(os.path.join(model_folder, '{}_preds.npy'.format(data_type)))
+    label = np.load(os.path.join(model_folder, '{}_label.npy'.format(data_type)))
 
-    # np.save(os.path.join(model_folder, '{}_preds.npy'.format(data_type)), mean_pred)
-    # np.save(os.path.join(model_folder, '{}_label.npy'.format(data_type)), mean_label)
+    fpn, sen, the = roc_curve(label.tolist(), pred[:, -1].tolist())
+    auc = roc_auc_score(label.tolist(), pred[:, -1].tolist())
+    plt.figure(0, figsize=(6, 5))
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.plot(fpn, sen, label='AUC: {:.3f}'.format(auc))
+    plt.xlabel('1 - Specificity')
+    plt.ylabel('Sensitivity')
+    plt.legend(loc='lower right')
+    plt.show()
+    plt.close()
 
+    precision, recall, f1_score, cm = F1Score(label.tolist(), np.argmax(pred, axis=-1).tolist())
+    ShowCM(cm)
+    print(data_type)
+    print('precision', [float('{:.3f}'.format(i)) for i in precision])
+    print('recall   ', [float('{:.3f}'.format(i)) for i in recall])
+    print('f1_score ', [float('{:.3f}'.format(i)) for i in f1_score])
 
 
 if __name__ == '__main__':
     from RenJi.Visualization.Show import ShowCM
     model_root = r'/home/zhangyihong/Documents/RenJi/Model2D'
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
-    # model_root = r'Z:\RenJi\Model2DAug'
-    # data_root = r'Z:\RenJi'
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    model_name = 'ResNeXt_0915_5slice_cv_2cl'
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     # cm = Inference(device, 'ResNeXt_0914_5slice_focal', data_type='train', n_classes=4, weights_list=None)
     # ShowCM(cm)
@@ -190,7 +207,8 @@ if __name__ == '__main__':
     # cm = Inference(device, 'ResNeXt_0914_5slice_focal', data_type='test', n_classes=4, weights_list=None)
     # ShowCM(cm)
 
-    cm = EnsembleInference(model_root, data_root, 'ResNeXt_0914_5slice_cv', 'alltrain', weights_list=None)
-    ShowCM(cm)
-    cm = EnsembleInference(model_root, data_root, 'ResNeXt_0914_5slice_cv', 'test', weights_list=None)
-    ShowCM(cm)
+    EnsembleInference(model_root, data_root, model_name, 'alltrain', weights_list=None)
+    EnsembleInference(model_root, data_root, model_name, 'test', weights_list=None)
+
+    Result4NPY(os.path.join(model_root, model_name), data_type='alltrain')
+    Result4NPY(os.path.join(model_root, model_name), data_type='test')

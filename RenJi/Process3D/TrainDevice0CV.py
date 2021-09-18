@@ -60,7 +60,7 @@ def EnsembleTrain(device, model_root, model_name, data_root):
     total_epoch = 10000
     batch_size = 12
     model_folder = os.path.join(model_root, model_name)
-    # ClearGraphPath(model_folder)
+    ClearGraphPath(model_folder)
 
     param_config = {
         RotateTransform.name: {'theta': ['uniform', -10, 10]},
@@ -84,7 +84,7 @@ def EnsembleTrain(device, model_root, model_name, data_root):
         val_loader, val_batches = _GetLoader(data_root, sub_val, param_config, input_shape, batch_size, True)
 
         # no softmax or sigmoid
-        model = GenerateModel(50, n_input_channels=1, n_classes=4).to(device)
+        model = GenerateModel(50, n_input_channels=1, n_classes=2).to(device)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         ce_loss = torch.nn.CrossEntropyLoss()
@@ -102,6 +102,8 @@ def EnsembleTrain(device, model_root, model_name, data_root):
                 image = inputs[0] * inputs[1]
                 image = torch.unsqueeze(image, dim=1)
                 image = MoveTensorsToDevice(image, device)
+                outputs[outputs <= 1] = 0
+                outputs[outputs >= 2] = 1
                 outputs = MoveTensorsToDevice(outputs, device)
 
                 preds = model(image)
@@ -125,6 +127,8 @@ def EnsembleTrain(device, model_root, model_name, data_root):
                 for ind, (inputs, outputs) in enumerate(val_loader):
                     image = inputs[0] * inputs[1]
                     image = torch.unsqueeze(image, dim=1)
+                    outputs[outputs <= 1] = 0
+                    outputs[outputs >= 2] = 1
 
                     image = MoveTensorsToDevice(image, device)
                     outputs = MoveTensorsToDevice(outputs, device)
@@ -164,7 +168,6 @@ def EnsembleTrain(device, model_root, model_name, data_root):
             writer.flush()
         writer.close()
         del writer, optimizer, scheduler, early_stopping, model
-        break
 
 
 def CheckInput():
@@ -216,4 +219,4 @@ if __name__ == '__main__':
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    EnsembleTrain(device, model_root, 'ResNet3D_0914_mask_cv', data_root)
+    EnsembleTrain(device, model_root, 'ResNet3D_0915_mask_cv_2cl', data_root)
