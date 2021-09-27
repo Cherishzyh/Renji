@@ -4,12 +4,13 @@ import shutil
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from scipy import ndimage
 from copy import deepcopy
 from pathlib import Path
 
-from BasicTool.MeDIT.Visualization import FlattenImages
-from BasicTool.MeDIT.Normalize import Normalize01
+from MeDIT.Visualization import FlattenImages
+from MeDIT.Normalize import Normalize01
 
 
 def LoadImage(path):
@@ -215,8 +216,8 @@ def Check():
 
 
 def DealWithDifference():
-    from BasicTool.MeDIT.Normalize import Normalize01
-    from BasicTool.MeDIT.Visualization import Imshow3DArray
+    from MeDIT.Normalize import Normalize01
+    from MeDIT.Visualization import Imshow3DArray
     # def _KeepLargest(mask):
     #     new_mask = np.zeros(mask.shape)
     #     label_im, nb_labels = ndimage.label(mask)
@@ -248,6 +249,55 @@ def DealWithDifference():
 # DealWithDifference()
 
 
-def SaveDiff():
-    save_folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\DifferenceImage'
+def RemoveNormal():
+    label_path = r'Z:\RenJi\label_norm.csv'
+    df = pd.read_csv(label_path, index_col='CaseName')
+    case_list = []
+    label_list = []
+    for case in df.index:
+        if df.loc[case].item() <= 1:
+            case_list.append(case)
+            label_list.append(int(0))
+        elif df.loc[case].item() >= 2:
+            case_list.append(case)
+            label_list.append(int(1))
+    new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
+    new_df.to_csv(r'Z:\RenJi\label_2cl.csv', index=False)
+# RemoveNormal()
 
+
+# from MeDIT.Normalize import Normalize01
+# from MeDIT.Visualization import Imshow3DArray
+# data = np.squeeze(np.load(r'Z:\RenJi\LVA finished 2CH_MASK 20210910\NPY\20140923 suyongming.npy'))
+# roi = np.squeeze(np.load(r'Z:\RenJi\LVA finished 2CH_MASK 20210910\RoiNPY\20140923 suyongming.npy'))
+# for slice in [0, 1, -1, -2]:
+#     plt.figure(figsize=(8, 8))
+#     plt.imshow(data[slice], cmap='gray')
+#     plt.contour(roi[slice], colors='r')
+#     plt.gca().xaxis.set_major_locator(plt.NullLocator())
+#     plt.gca().yaxis.set_major_locator(plt.NullLocator())
+#     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+#     plt.show()
+#     plt.close()
+
+
+# label_df = pd.read_csv(r'Z:\RenJi\label_norm.csv', index_col='CaseName')
+#
+# stand_folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\LVA finished 2CH_MASK'
+# check_folder = r'C:\Users\ZhangYihong\Desktop\repeat'
+#
+# case_list = os.listdir(check_folder)
+# repeat_list = set(['{} {}'.format(case.split(' ')[0], case.split(' ')[1]) for case in case_list])
+#
+# for case in repeat_list:
+#     label = label_df.loc[case].item()
+#     if label == 0:
+#         print(case)
+    # check_path = os.path.join()
+
+stand_t2_path = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\LVA finished 2CH_MASK\20210713 liufang 3\601_B-TFE_2CH.nii'
+check_t2_path = r'C:\Users\ZhangYihong\Desktop\repeat\20210713 liufang 3\601_B-TFE_2CH.nii'
+
+stand_t2 = sitk.GetArrayFromImage(sitk.ReadImage(stand_t2_path))
+check_t2 = sitk.GetArrayFromImage(sitk.ReadImage(check_t2_path))
+print((check_t2 == stand_t2).all())

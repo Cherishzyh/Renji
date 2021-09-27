@@ -28,3 +28,23 @@ def ROC(label, pred, save_path=r''):
     else:
         plt.show()
     plt.close()
+
+
+def Dice(input, target):
+    smooth = 1
+
+    input_flat = input.contiguous().view(-1)
+    target_flat = target.contiguous().view(-1)
+
+    intersection = (input_flat * target_flat).sum()
+    return (2 * intersection + smooth) / (input_flat.sum() + target_flat.sum() + smooth)
+
+
+def Dice4Numpy(input, target):
+    smooth = 1
+
+    input_flat = input.flatten()
+    target_flat = target.flatten()
+
+    intersection = (input_flat * target_flat).sum()
+    return (2 * intersection + smooth) / (input_flat.sum() + target_flat.sum() + smooth)

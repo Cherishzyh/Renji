@@ -29,6 +29,20 @@ class FocalLoss(nn.Module):
         return loss.mean()
 
 
+class DiceLoss(nn.Module):
+    def __init__(self):
+        super(DiceLoss, self).__init__()
+
+    def forward(self, input, target):
+        smooth = 1
+
+        input_flat = input.contiguous().view(-1)
+        target_flat = target.contiguous().view(-1)
+
+        intersection = (input_flat * target_flat).sum()
+        return 1 - (2 * intersection + smooth) / (input_flat.sum() + target_flat.sum() + smooth)
+
+
 if __name__ == '__main__':
     import numpy as np
     pred = np.array([[0.1, 0.2, 0.7], [0.2, 0.5, 0.3], [.6, .1, .3]])

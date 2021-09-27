@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 
 import pandas as pd
-from BasicTool.MeDIT.Visualization import FlattenImages, Imshow3DArray
-from BasicTool.MeDIT.Normalize import Normalize01, NormalizeZ
+from MeDIT.Visualization import FlattenImages, Imshow3DArray
+from MeDIT.Normalize import Normalize01, NormalizeZ
 
+from scipy import stats
 
 ############################################## Tools  ##################################################################
 
@@ -144,7 +145,7 @@ def TestResize():
 
 
 def Nii2Npy():
-    from BasicTool.MeDIT.ArrayProcess import ExtractBlock
+    from MeDIT.ArrayProcess import ExtractBlock
     shape = [30, 200, 200]
     nii_folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\LVA finished 2CH_MASK'
     npy_folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\NPY'
@@ -156,8 +157,6 @@ def Nii2Npy():
     flip_list = [case[:case.index('.jpg')] for case in flip_list]
 
     for index, case in enumerate(os.listdir(nii_folder)):
-        if index != 150 and index != 155:
-            continue
         print('########################## {} / {} ###############################'.
               format(index + 1, len(os.listdir(nii_folder))))
         case_path = os.path.join(nii_folder, case)
@@ -499,24 +498,63 @@ if __name__ == '__main__':
     # TestResampler()
 
 
-    case_list = os.listdir(r'Z:\RenJi\LVA finished 2CH_MASK 20210910\NPY')
-    case_list = [case[: case.index('.npy')] for case in case_list]
-    case_list = ['{} {}'.format(case.split(' ')[0], case.split(' ')[1]) for case in case_list]
+    # case_list = os.listdir(r'Z:\RenJi\LVA finished 2CH_MASK 20210910\NPY')
+    # case_list = [case[: case.index('.npy')] for case in case_list]
+    # case_list = ['{} {}'.format(case.split(' ')[0], case.split(' ')[1]) for case in case_list]
+    #
+    # df1 = pd.read_csv(r'Z:\RenJi\test_name.csv', index_col='CaseName').index.tolist()
+    # df2 = pd.read_csv(r'Z:\RenJi\train_name.csv', index_col='CaseName').index.tolist()
+    # df3 = pd.read_csv(r'Z:\RenJi\val_name.csv', index_col='CaseName').index.tolist()
+    # df1.extend(df2)
+    # df1.extend(df3)
+    # print([case for case in case_list if case not in df1])
+    # print([case for case in df1 if case not in case_list])
 
-    df1 = pd.read_csv(r'Z:\RenJi\test_name.csv', index_col='CaseName').index.tolist()
-    df2 = pd.read_csv(r'Z:\RenJi\train_name.csv', index_col='CaseName').index.tolist()
-    df3 = pd.read_csv(r'Z:\RenJi\val_name.csv', index_col='CaseName').index.tolist()
-    df1.extend(df2)
-    df1.extend(df3)
-    print([case for case in case_list if case not in df1])
-    print([case for case in df1 if case not in case_list])
+    label_path = r'Z:\RenJi\label_2cl.csv'
+    label_df = pd.read_csv(label_path, index_col='CaseName')
+    label = []
+    for cv_index in range(1, 6):
+        cv_path = r'Z:\RenJi\non_train-cv{}.csv'.format(cv_index)
+        cv_list = pd.read_csv(cv_path, index_col='CaseName').index.to_list()
+
+        label_0 = []
+        label_1 = []
+        label_2 = []
+        label_3 = []
+        for case in cv_list:
+            if label_df.loc[case].item() == 0:
+                label_0.append(case)
+            elif label_df.loc[case].item() == 1:
+                label_1.append(case)
+            elif label_df.loc[case].item() == 2:
+                label_2.append(case)
+            elif label_df.loc[case].item() == 3:
+                label_3.append(case)
+        print('cv_{}:\n label 0: {}\tlabel 1: {}\tlabel 2: {}\tlabel 3: {}\t'.format(cv_index, len(label_0), len(label_1),
+                                                                                     len(label_2), len(label_3)))
+        label.append([len(label_0), len(label_1), len(label_2), len(label_3)])
+    label = np.array(label)
+    print(stats.chisquare(f_obs=label[0],  f_exp=np.sum(label[1:], axis=0)))
+    print(stats.chisquare(f_obs=label[1],  f_exp=np.sum(label, axis=0)-label[1]))
+    print(stats.chisquare(f_obs=label[2],  f_exp=np.sum(label, axis=0)-label[2]))
+    print(stats.chisquare(f_obs=label[3],  f_exp=np.sum(label, axis=0)-label[3]))
+    print(stats.chisquare(f_obs=label[4],  f_exp=np.sum(label[:4], axis=0)))
 
 
 
-
-
-
-
+    test_path = r'Z:\RenJi\non_test_name.csv'
+    cv_df = pd.read_csv(test_path, index_col='CaseName')
+    label_0, label_1, label_2, label_3 = 0, 0, 0, 0
+    for case in cv_df.index:
+        if label_df.loc[case].item() == 0:
+            label_0 += 1
+        elif label_df.loc[case].item() == 1:
+            label_1 += 1
+        elif label_df.loc[case].item() == 2:
+            label_2 += 1
+        elif label_df.loc[case].item() == 3:
+            label_3 += 1
+    print('label 0: {}\tlabel 1: {}\tlabel 2: {}\tlabel 3: {}\t'.format(label_0, label_1, label_2, label_3))
 
 
 

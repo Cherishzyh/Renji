@@ -1,6 +1,9 @@
 import os
 
 import pandas as pd
+from copy import deepcopy
+from sklearn.metrics import confusion_matrix
+from scipy.ndimage import binary_dilation
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
 import torch
@@ -9,11 +12,13 @@ from torch.utils.data import DataLoader
 from MeDIT.Others import IterateCase
 from MeDIT.Normalize import Normalize01
 from T4T.Utility.Data import *
+from MeDIT.Statistics import BinaryClassification
 # from RenJi.Network2D.ResNet2D import resnet50
 from RenJi.Network2D.ResNet2D_CBAM import resnet50
 # from RenJi.Network2D.ResNet2D_Focus import resnet50
 # from RenJi.Network2D.AttenBlock import resnet50
 from RenJi.Network2D.ResNeXt2D import ResNeXt
+from RenJi.SegModel2D.UNet import UNet
 
 from RenJi.Metric.ConfusionMatrix import F1Score
 from RenJi.Metric.ROC import ROC
@@ -24,7 +29,8 @@ def _GetLoader(sub_list, data_root, input_shape, batch_size):
 
     data.AddOne(Image2D(data_root + '/NPY', shape=input_shape))
     data.AddOne(Image2D(data_root + '/RoiNPY_Dilation', shape=input_shape, is_roi=True))
-    data.AddOne(Label(data_root + '/label_norm.csv'), is_input=False)
+    # data.AddOne(Label(data_root + '/label_norm.csv'), is_input=False)
+    data.AddOne(Label(data_root + '/label_2cl.csv'), is_input=False)
 
     loader = DataLoader(data, batch_size=batch_size)
     batches = np.ceil(len(data.indexes) / batch_size)
@@ -45,7 +51,7 @@ def Inference(device, model_name, data_type='test', n_classes=4, weights_list=No
 
     model_folder = os.path.join(model_root, model_name)
 
-    model = ResNeXt(input_channels=5, num_classes=4, num_blocks=[3, 4, 6, 3]).to(device)
+    model = ResNeXt(input_channels=5, num_classes=n_classes, num_blocks=[3, 4, 6, 3]).to(device)
     if weights_list is None:
         weights_list = [one for one in IterateCase(model_folder, only_folder=False, verbose=0) if one.is_file()]
         weights_list = [weights for weights in weights_list if str(weights).endswith('.pt')]
@@ -105,11 +111,13 @@ def Inference(device, model_name, data_type='test', n_classes=4, weights_list=No
     print([float('{:.3f}'.format(i)) for i in recall])
     print([float('{:.3f}'.format(i)) for i in f1_score])
     print(cm)
+    auc = roc_auc_score(label_list, pred_list)
+    print(auc)
 
     return cm
 
 
-def EnsembleInference(model_root, data_root, model_name, data_type, weights_list=None):
+def EnsembleInference(model_root, data_root, model_name, data_type, weights_list=None, n_class=2):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     input_shape = (150, 150)
     batch_size = 24
@@ -127,7 +135,7 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
     cv_folder_list = [one for one in IterateCase(model_folder, only_folder=True, verbose=0)]
     cv_pred_list, cv_label_list = [], []
     for cv_index, cv_folder in enumerate(cv_folder_list):
-        model = ResNeXt(input_channels=5, num_classes=2, num_blocks=[3, 4, 6, 3]).to(device)
+        model = ResNeXt(input_channels=5, num_classes=n_class, num_blocks=[3, 4, 6, 3]).to(device)
         if weights_list is None:
             one_fold_weights_list = [one for one in IterateCase(cv_folder, only_folder=False, verbose=0) if one.is_file()]
             one_fold_weights_list = sorted(one_fold_weights_list,  key=lambda x: os.path.getctime(str(x)))
@@ -149,14 +157,19 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
 
             preds = model(image)
 
-            pred_list.extend(torch.softmax(preds, dim=1).cpu().detach().numpy().tolist())
-            label_list.extend(outputs.cpu().data.numpy().astype(int).squeeze().tolist())
+            pred_list.extend(torch.softmax(preds, dim=1)[:, -1].cpu().detach())
+            label_list.extend(outputs.int().cpu().data)
 
         cv_pred_list.append(pred_list)
         cv_label_list.append(label_list)
 
-        _, _, f1_score, _ = F1Score(label_list, torch.argmax(torch.tensor(pred_list), dim=1))
-        print([float('{:.3f}'.format(i)) for i in f1_score])
+        if n_class == 2:
+            auc = roc_auc_score(label_list, pred_list)
+            print(auc)
+        else:
+            _, _, f1_score, _ = F1Score(label_list, torch.argmax(torch.tensor(pred_list), dim=1))
+            print([float('{:.3f}'.format(i)) for i in f1_score])
+
 
         del model, weights_path
 
@@ -169,36 +182,130 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
     return mean_label, mean_pred
 
 
-def Result4NPY(model_folder, data_type):
+def EnsembleInferenceBySeg(model_root, data_root, model_name, data_type, weights_list=None, n_class=2):
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    input_shape = (150, 150)
+    batch_size = 24
+    model_folder = os.path.join(model_root, model_name)
+
+    sub_list = pd.read_csv(os.path.join(data_root, '{}_name.csv'.format(data_type)), index_col='CaseName').index.tolist()
+
+    data = DataManager(sub_list=sub_list)
+
+    data.AddOne(Image2D(data_root + '/NPY', shape=input_shape))
+    data.AddOne(Label(data_root + '/label_2cl.csv'), is_input=False)
+    data_loader = DataLoader(data, batch_size=batch_size, shuffle=False)
+
+    seg_model_path = r'/home/zhangyihong/Documents/RenJi/SegModel/UNet_0922/90-0.156826.pt'
+    seg_model = UNet(in_channels=1, out_channels=1).to(device)
+    seg_model.load_state_dict(torch.load(str(seg_model_path)))
+    seg_model.eval()
+
+    cv_folder_list = [one for one in IterateCase(model_folder, only_folder=True, verbose=0)]
+    cv_pred_list, cv_label_list = [], []
+    for cv_index, cv_folder in enumerate(cv_folder_list):
+        model = ResNeXt(input_channels=5, num_classes=n_class, num_blocks=[3, 4, 6, 3]).to(device)
+        if weights_list is None:
+            one_fold_weights_list = [one for one in IterateCase(cv_folder, only_folder=False, verbose=0) if one.is_file()]
+            one_fold_weights_list = sorted(one_fold_weights_list,  key=lambda x: os.path.getctime(str(x)))
+            weights_path = one_fold_weights_list[-1]
+        else:
+            weights_path = weights_list[cv_index]
+
+        print(weights_path.name, end='\t')
+        model.load_state_dict(torch.load(str(weights_path)))
+
+        pred_list, label_list = [], []
+        model.eval()
+        for inputs, outputs in data_loader:
+            image = torch.cat([inputs[:, 9: 12], inputs[:, -2:]], dim=1)
+            roi = torch.zeros_like(image)
+            image = MoveTensorsToDevice(image, device)
+            roi = MoveTensorsToDevice(roi, device)
+
+            with torch.no_grad():
+                for slice in range(image.shape[1]):
+                    roi[:, slice:slice + 1] = torch.sigmoid(seg_model(image[:, slice:slice + 1]))
+            roi[roi >= 0.5] = 1
+            roi[roi < 0.5] = 0
+            dilate_roi = torch.from_numpy(binary_dilation(roi.cpu().detach().numpy(),
+                                                          structure=np.ones((1, 1, 11, 11)))).to(device)
+
+            preds = model(image*dilate_roi)
+
+            pred_list.extend(torch.softmax(preds, dim=1)[:, -1].cpu().detach())
+            label_list.extend(outputs.int())
+
+        auc = roc_auc_score(label_list, pred_list)
+        print(auc)
+
+        cv_pred_list.append(pred_list)
+        cv_label_list.append(label_list)
+
+        del model, weights_path
+
+    cv_pred = np.array(cv_pred_list)
+    cv_label = np.array(cv_label_list)
+    mean_pred = np.mean(cv_pred, axis=0)
+    mean_label = np.mean(cv_label, axis=0)
+    np.save(os.path.join(model_folder, '{}_preds.npy'.format(data_type)), mean_pred)
+    np.save(os.path.join(model_folder, '{}_label.npy'.format(data_type)), mean_label)
+    return mean_label, mean_pred
+
+
+def Result4NPY(model_folder, data_type, n_class=2):
     pred = np.load(os.path.join(model_folder, '{}_preds.npy'.format(data_type)))
     label = np.load(os.path.join(model_folder, '{}_label.npy'.format(data_type)))
 
-    fpn, sen, the = roc_curve(label.tolist(), pred[:, -1].tolist())
-    auc = roc_auc_score(label.tolist(), pred[:, -1].tolist())
+    if n_class == 2:
+        bc = BinaryClassification()
+        bc.Run(pred.tolist(), np.asarray(label, dtype=np.int32).tolist())
+        binary_pred = deepcopy(pred)
+        binary_pred[binary_pred >= 0.5] = 1
+        binary_pred[binary_pred < 0.5] = 0
+        cm = confusion_matrix(label.tolist(), binary_pred.tolist())
+        ShowCM(cm)
+    else:
+        precision, recall, f1_score, cm = F1Score(label.tolist(), pred.tolist())
+        ShowCM(cm)
+        print(data_type)
+        print('precision', [float('{:.3f}'.format(i)) for i in precision])
+        print('recall   ', [float('{:.3f}'.format(i)) for i in recall])
+        print('f1_score ', [float('{:.3f}'.format(i)) for i in f1_score])
+
+
+def DrawROC(model_folder):
+    train_pred = np.load(os.path.join(model_folder, '{}_preds.npy'.format('non_alltrain')))
+    train_label = np.load(os.path.join(model_folder, '{}_label.npy'.format('non_alltrain')))
+
+    test_pred = np.load(os.path.join(model_folder, '{}_preds.npy'.format('non_test')))
+    test_label = np.load(os.path.join(model_folder, '{}_label.npy'.format('non_test')))
+
     plt.figure(0, figsize=(6, 5))
     plt.plot([0, 1], [0, 1], 'k--')
-    plt.plot(fpn, sen, label='AUC: {:.3f}'.format(auc))
+
+    fpn, sen, the = roc_curve(train_label.tolist(), train_pred.tolist())
+    auc = roc_auc_score(train_label.tolist(), train_pred.tolist())
+    plt.plot(fpn, sen, label='Train: {:.3f}'.format(auc))
+
+    fpn, sen, the = roc_curve(test_label.tolist(), test_pred.tolist())
+    auc = roc_auc_score(test_label.tolist(), test_pred.tolist())
+    plt.plot(fpn, sen, label='Test:  {:.3f}'.format(auc))
+
     plt.xlabel('1 - Specificity')
     plt.ylabel('Sensitivity')
     plt.legend(loc='lower right')
     plt.show()
     plt.close()
 
-    precision, recall, f1_score, cm = F1Score(label.tolist(), np.argmax(pred, axis=-1).tolist())
-    ShowCM(cm)
-    print(data_type)
-    print('precision', [float('{:.3f}'.format(i)) for i in precision])
-    print('recall   ', [float('{:.3f}'.format(i)) for i in recall])
-    print('f1_score ', [float('{:.3f}'.format(i)) for i in f1_score])
-
 
 if __name__ == '__main__':
     from RenJi.Visualization.Show import ShowCM
     model_root = r'/home/zhangyihong/Documents/RenJi/Model2D'
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
-    model_name = 'ResNeXt_0915_5slice_cv_2cl'
+    model_name = 'ResNeXt_0922_5slice_cv_labelroi'
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')
     # cm = Inference(device, 'ResNeXt_0914_5slice_focal', data_type='train', n_classes=4, weights_list=None)
     # ShowCM(cm)
@@ -207,8 +314,15 @@ if __name__ == '__main__':
     # cm = Inference(device, 'ResNeXt_0914_5slice_focal', data_type='test', n_classes=4, weights_list=None)
     # ShowCM(cm)
 
-    EnsembleInference(model_root, data_root, model_name, 'alltrain', weights_list=None)
-    EnsembleInference(model_root, data_root, model_name, 'test', weights_list=None)
+    EnsembleInference(model_root, data_root, model_name, 'non_alltrain', weights_list=None, n_class=2)
+    EnsembleInference(model_root, data_root, model_name, 'non_test', weights_list=None, n_class=2)
+    #
+    # Result4NPY(os.path.join(model_root, model_name), data_type='alltrain', n_class=4)
+    # Result4NPY(os.path.join(model_root, model_name), data_type='test', n_class=4)
+    # DrawROC(os.path.join(model_root, model_name))
 
-    Result4NPY(os.path.join(model_root, model_name), data_type='alltrain')
-    Result4NPY(os.path.join(model_root, model_name), data_type='test')
+    # EnsembleInferenceBySeg(model_root, data_root, model_name, 'non_alltrain', weights_list=None, n_class=2)
+    # EnsembleInferenceBySeg(model_root, data_root, model_name, 'non_test', weights_list=None, n_class=2)
+    Result4NPY(os.path.join(model_root, model_name), data_type='non_alltrain', n_class=2)
+    Result4NPY(os.path.join(model_root, model_name), data_type='non_test', n_class=2)
+    DrawROC(os.path.join(model_root, model_name))

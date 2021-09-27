@@ -78,7 +78,8 @@ def SplitDataset():
     # 0: 0.27 	1: 0.32 	2: 0.15 	3: 0.26
 
     # csv_path = r'D:\Data\renji\label.csv'
-    csv_path = r'D:\Data\renji\train_name.csv'
+    # csv_path = r'D:\Data\renji\train_name.csv'
+    csv_path = r'D:\Data\renji\non_normal_case.csv'
     df = pd.read_csv(csv_path, index_col='CaseName')
     case_list = df.index.tolist()
     case_list_name = [case.split(' ')[-1] for case in case_list]  # 不重复的数据
@@ -149,7 +150,7 @@ def SplitDataset():
 
 def SplitCV(cv_folder):
     # 同一个患者不同时间的数据应该放在同一个cv中，不然会导致数据泄露
-    csv_path = r'Z:\RenJi\alltrain_name.csv'
+    csv_path = r'Z:\RenJi\non_alltrain_name.csv'
     df = pd.read_csv(csv_path, index_col='CaseName')
     case_list = df.index.tolist()
     shuffle(case_list)
@@ -158,7 +159,11 @@ def SplitCV(cv_folder):
     no_repeat_case_list = [case for case in case_list if case.split(' ')[-1] not in repeat_case_name]
     repeat_case_list = [case for case in case_list if case.split(' ')[-1] in repeat_case_name]
 
-    cv_case_num = len(case_list) // cv_folder
+    if len(repeat_case_name) % 5 > 0:
+        repeat_num = -(5 - len(repeat_case_name) % 5)
+        repeat_case_name.extend(repeat_case_name[repeat_num:])
+    repeat_case_name = np.array(repeat_case_name).reshape((5, len(repeat_case_name)//5)).tolist()
+
     cv_list = [[] for index in range(cv_folder)]
     cv_name_list = [[] for index in range(cv_folder)]
 
@@ -172,34 +177,34 @@ def SplitCV(cv_folder):
             else:
                 cv += 1
 
-    cv = 0
     for case in repeat_case_list:
-        add = False
-        case_name = case.split(' ')
-        for index in range(cv_folder):
-            if case_name in cv_name_list[index]:
-                cv_list[cv].append(case)
-                cv_name_list[cv].append(case_name)
-                add = True
-        if not add:
-            cv_list[cv].append(case)
-            cv_name_list[cv].append(case_name)
-        if len(cv_list[cv]) >= cv_case_num:
-            if cv == 4:
-                continue
-            else:
-                cv += 1
+        case_name = case.split(' ')[-1]
+        if case_name in repeat_case_name[0]:
+            cv_list[0].append(case)
+            cv_name_list[0].append(case_name)
+        elif case_name in repeat_case_name[1]:
+            cv_list[1].append(case)
+            cv_name_list[1].append(case_name)
+        elif case_name in repeat_case_name[2]:
+            cv_list[2].append(case)
+            cv_name_list[2].append(case_name)
+        elif case_name in repeat_case_name[3]:
+            cv_list[3].append(case)
+            cv_name_list[3].append(case_name)
+        elif case_name in repeat_case_name[4]:
+            cv_list[4].append(case)
+            cv_name_list[4].append(case_name)
 
     for index in range(cv_folder):
         for case in cv_name_list[index]:
             for i in range(index+1, cv_folder):
                 if case in cv_name_list[i]:
-                    raise Exception
+                    print('error')
 
     for index in range(cv_folder):
         df = pd.DataFrame({'CaseName': cv_list[index]})
-        df.to_csv(r'Z:\RenJi\train-cv{}.csv'.format(index+1), index=False)
-SplitCV(5)
+        df.to_csv(r'Z:\RenJi\non_train-cv{}.csv'.format(index+1), index=False)
+# SplitCV(5)
 
 
 def Statistics(data_path):
@@ -261,3 +266,117 @@ def LabelTransform():
     new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
     new_df.to_csv(r'/home/zhangyihong/Documents/RenJi/label_norm.csv', index=False)
 # LabelTransform()
+
+
+def SplitNormal():
+    # 同一个患者不同时间的数据应该放在同一个cv中，不然会导致数据泄露
+    all_case_path = r'Z:\RenJi\Normal_case.csv'
+    df = pd.read_csv(all_case_path, index_col='CaseName')
+    case_list = df.index.tolist()
+    shuffle(case_list)
+    case_list_name = [case.split(' ')[-1] for case in case_list]
+    repeat_case_name = list(set([case for case in case_list_name if case_list_name.count(case) > 1])) # 重复的数据
+    no_repeat_case_list = [case for case in case_list if case.split(' ')[-1] not in repeat_case_name]
+    repeat_case_list = [case for case in case_list if case.split(' ')[-1] in repeat_case_name]
+
+    repeat_case_name = np.array(repeat_case_name).reshape((3, 1)).tolist()
+
+    dataset_list = [[] for index in range(3)]
+    dataset_name_list = [[] for index in range(3)]
+    dataset_proportion = [0.64, 0.16, 0.20]
+
+    for case in repeat_case_list:
+        case_name = case.split(' ')[-1]
+        if case_name in repeat_case_name[0]:
+            dataset_list[0].append(case)
+            dataset_name_list[0].append(case_name)
+        elif case_name in repeat_case_name[1]:
+            dataset_list[1].append(case)
+            dataset_name_list[1].append(case_name)
+        elif case_name in repeat_case_name[2]:
+            dataset_list[2].append(case)
+            dataset_name_list[2].append(case_name)
+
+    index = 0
+    for case in no_repeat_case_list:
+        dataset_list[index].append(case)
+        dataset_name_list[index].append(case.split(' ')[-1])
+        if index < 2:
+            if len(dataset_list[index]) >= dataset_proportion[index] * len(case_list):
+                index += 1
+
+    for index in range(3):
+        df = pd.DataFrame({'CaseName': dataset_list[index]})
+        df.to_csv(r'Z:\RenJi\normal_{}.csv'.format(index+1), index=False)
+# SplitNormal()
+
+
+def SplitNonNormal():
+    # 同一个患者不同时间的数据应该放在同一个数据集中，不然会导致数据泄露，包括在cv的过程中
+    # 1: 0.36 	2: 0.44 	3: 0.20
+
+    csv_path = r'Z:\RenJi\non_normal_case.csv'
+    df = pd.read_csv(csv_path, index_col='CaseName')
+    case_list = df.index.tolist()
+    case_list_name = [case.split(' ')[-1] for case in case_list]  # 不重复的数据
+    repeat_case_name = sorted(set([case for case in case_list_name if case_list_name.count(case) > 1]))
+    shuffle(repeat_case_name)
+    train_repeat = repeat_case_name[: int(len(repeat_case_name)*0.8)]
+    test_repeat = repeat_case_name[int(len(repeat_case_name)*0.8):]
+
+    while True:
+        train = []
+        test = []
+        train_label = []
+        test_label = []
+        shuffle(case_list)
+        train_num = int(len(case_list) * 0.8)
+        test_num = int(len(case_list) - train_num)
+        for index, case in enumerate(case_list):
+            label = df.loc[case, 'Label']
+            case_name = case.split(' ')[-1]
+            if case_name in train_repeat:
+                train.append(case)
+                train_label.append(label)
+            elif case_name in test_repeat:
+                test.append(case)
+                test_label.append(label)
+            else: continue
+        for index, case in enumerate(case_list):
+            label = df.loc[case, 'Label']
+            case_name = case.split(' ')[-1]
+            if case_name not in train_repeat and case_name not in test_repeat:
+                if len(train) < train_num:
+                    train.append(case)
+                    train_label.append(label)
+                else:
+                    test.append(case)
+                    test_label.append(label)
+            else: continue
+
+        train_name = [case.split(' ')[-1] for case in train]
+        test_name = [case.split(' ')[-1] for case in test]
+        if len([case for case in train_name if case in test_name]) == 0:
+            train_label_per = [len([label for label in train_label if label == 1])/train_num,
+                               len([label for label in train_label if label == 2])/train_num,
+                               len([label for label in train_label if label == 3])/train_num]
+            test_label_per = [len([label for label in test_label if label == 1])/test_num,
+                              len([label for label in test_label if label == 2])/test_num,
+                              len([label for label in test_label if label == 3])/test_num]
+            per = [0.36, 0.44, 0.2]
+            diff = []
+            for list in [train_label_per, test_label_per]:
+                diff.extend([abs(per[idx] - list[idx]) for idx in range(len(per))])
+            if (np.array(diff) < 0.01).all():
+                print(train_label_per)
+                print(test_label_per)
+                print(diff)
+                print('Split successful!')
+                print('train case: {}; test case: {}'.format(len(train), len(test)))
+
+                train_df = pd.DataFrame({'CaseName': train, 'Label': train_label})
+                train_df.to_csv(r'Z:\RenJi\non_alltrain_name.csv', index=False)
+                test_df = pd.DataFrame({'CaseName': test, 'Label': test_label})
+                test_df.to_csv(r'Z:\RenJi\non_test_name.csv', index=False)
+                break
+# SplitNonNormal()
