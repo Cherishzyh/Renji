@@ -380,3 +380,18 @@ def SplitNonNormal():
                 test_df.to_csv(r'Z:\RenJi\non_test_name.csv', index=False)
                 break
 # SplitNonNormal()
+
+def GenerateLabel():
+    case_list = os.listdir(r'Z:\RenJi\ExternalTest\external test')
+    case_dict = {'CaseName': [], 'Label': []}
+    for case in case_list:
+        try:
+            case_name = '{} {}'.format(case.split(' ')[0], case.split(' ')[1])
+            label = case.split(' ')[-1]
+            case_dict['CaseName'].append(case_name)
+            case_dict['Label'].append(label)
+        except Exception as e:
+            print(case, e)
+    df = pd.DataFrame.from_dict(case_dict)
+    df.to_csv(r'Z:\RenJi\ExternalTest\external_test.csv', index=False)
+# GenerateLabel()

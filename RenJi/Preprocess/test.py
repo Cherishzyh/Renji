@@ -266,38 +266,50 @@ def RemoveNormal():
 # RemoveNormal()
 
 
-# from MeDIT.Normalize import Normalize01
-# from MeDIT.Visualization import Imshow3DArray
-# data = np.squeeze(np.load(r'Z:\RenJi\LVA finished 2CH_MASK 20210910\NPY\20140923 suyongming.npy'))
-# roi = np.squeeze(np.load(r'Z:\RenJi\LVA finished 2CH_MASK 20210910\RoiNPY\20140923 suyongming.npy'))
-# for slice in [0, 1, -1, -2]:
-#     plt.figure(figsize=(8, 8))
-#     plt.imshow(data[slice], cmap='gray')
-#     plt.contour(roi[slice], colors='r')
-#     plt.gca().xaxis.set_major_locator(plt.NullLocator())
-#     plt.gca().yaxis.set_major_locator(plt.NullLocator())
-#     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-#     plt.show()
-#     plt.close()
+def Compare3CHCase():
+    data_folder = r'Z:\RenJi\3CHHeathy20211012\3CH'
+    csv_path = r'Z:\RenJi\normal_case.csv'
+    csv_list = pd.read_csv(csv_path, index_col='CaseName').index.tolist()
+    case_list = os.listdir(data_folder)
+    case_list = ['{} {}'.format(case.split(' ')[0], case.split(' ')[1]) for case in case_list]
 
+    case_in_csv = [case for case in csv_list if case not in case_list]
+    case_in_folder = [case for case in case_list if case not in csv_list]
 
-# label_df = pd.read_csv(r'Z:\RenJi\label_norm.csv', index_col='CaseName')
+    print()
+# Compare3CHCase()
+
+# print(sitk.ReadImage(r'Z:\RenJi\RawDataUseful\Combine\20141010 liujinxin\501_c3CH.nii').GetSpacing())
+# print(sitk.ReadImage(r'Z:\RenJi\RawDataUseful\Combine\20141010 liujinxin\501_c3CH.nii').GetSize())
 #
-# stand_folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\LVA finished 2CH_MASK'
-# check_folder = r'C:\Users\ZhangYihong\Desktop\repeat'
+# print(sitk.ReadImage(r'Z:\RenJi\RawDataUseful\Combine\20140923 suyongming\501_B-TFE_BH_3CH.nii').GetSpacing())
+# print(sitk.ReadImage(r'Z:\RenJi\RawDataUseful\Combine\20140923 suyongming\501_B-TFE_BH_3CH.nii').GetSize())
+# print(sitk.ReadImage(r'Z:\RenJi\3CHHeathy20211012\3CH\20161020 chenzhonghua\3CH_MASK.nii.gz').GetSpacing())
+
+# def Combine():
+#     raw_data_folder = r'Z:\RenJi\RawDataUseful\Combine'
+#     case_list = pd.read_csv(r'Z:\RenJi\normal_case.csv', index_col='CaseName').index.tolist()
+#     for case in os.listdir(raw_data_folder):
+#         if '{} {}'.format(case.split(' ')[0], case.split(' ')[1]) in case_list:
+#             print()
+
+raw_data_folder = r'Z:\RenJi\RawDataUseful\Combine'
+
+for case in os.listdir(raw_data_folder):
+    if os.path.exists(os.path.join(raw_data_folder, '{}/resize_3ch.nii.gz'.format(case))):
+        os.remove(os.path.join(raw_data_folder, '{}/resize_3ch.nii.gz'.format(case)))
+    if os.path.exists(os.path.join(raw_data_folder, '{}/mask_3ch.nii.gz'.format(case))):
+        os.remove(os.path.join(raw_data_folder, '{}/mask_3ch.nii.gz'.format(case)))
+#     case_folder = os.path.join(raw_data_folder, case)
+#     case_list = [data for data in os.listdir(case_folder) if '501' in data]
 #
-# case_list = os.listdir(check_folder)
-# repeat_list = set(['{} {}'.format(case.split(' ')[0], case.split(' ')[1]) for case in case_list])
 #
-# for case in repeat_list:
-#     label = label_df.loc[case].item()
-#     if label == 0:
+#     case_list = [data for data in os.listdir(case_folder) if '3CH' in data]
+#     case_list = [data for data in case_list if data != '3CH_MASK.nii.gz']
+#     if len(case_list) == 0:
 #         print(case)
-    # check_path = os.path.join()
 
-stand_t2_path = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\LVA finished 2CH_MASK\20210713 liufang 3\601_B-TFE_2CH.nii'
-check_t2_path = r'C:\Users\ZhangYihong\Desktop\repeat\20210713 liufang 3\601_B-TFE_2CH.nii'
-
-stand_t2 = sitk.GetArrayFromImage(sitk.ReadImage(stand_t2_path))
-check_t2 = sitk.GetArrayFromImage(sitk.ReadImage(check_t2_path))
-print((check_t2 == stand_t2).all())
+    # if len(case_list) == 1:
+    #     data_name = case_list[0]
+    #     new_name = '{}_3CH.nii'.format(data_name.split('.nii'))
+    #     os.rename(os.path.join(case_folder, data_name), os.path.join(case_folder, new_name))

@@ -11,8 +11,8 @@ from BasicTool.MIP4AIM.Application2Series.ManufactureMatcher import MatcherManag
 from BasicTool.MIP4AIM.NiiProcess.DwiProcessor import DwiProcessor
 from BasicTool.MIP4AIM.NiiProcess.Registrator import Registrator
 
-from CnnTools.CNNModel.SuccessfulModel.ProstateSegment import ProstateSegmentationTrumpetNet
-from CnnTools.CNNModel.SuccessfulModel.CSProstateCancerDetection import CSDetectTrumpetNetWithROI
+# from CnnTools.CNNModel.SuccessfulModel.ProstateSegment import ProstateSegmentationTrumpetNet
+# from CnnTools.CNNModel.SuccessfulModel.CSProstateCancerDetection import CSDetectTrumpetNetWithROI
 
 from BasicTool.MeDIT.Log import CustomerCheck, Eclog
 
@@ -36,8 +36,8 @@ class AutoProcessor:
         self.dwi_processor = DwiProcessor()
         self.registrator = Registrator()
 
-        self.prostate_segmentor = ProstateSegmentationTrumpetNet()
-        self.pca_detector = CSDetectTrumpetNetWithROI()
+        # self.prostate_segmentor = ProstateSegmentationTrumpetNet()
+        # self.pca_detector = CSDetectTrumpetNetWithROI()
 
 
     def DetectProstateCancer(self, case_folder):
@@ -76,10 +76,8 @@ class AutoProcessor:
 
         return True, ''
 
-
     def SeperateDWI(self, case_folder):
         self.dwi_processor.Seperate4DDwiInCaseFolder(case_folder)
-
 
     def ExtractSeries(self, case_folder, store_case_folder):
         is_work, source_list, dest_list = self.matcher.MatchOneCase(case_folder)
@@ -197,17 +195,21 @@ class AutoProcessor:
             print('Sleep........ZZZ.........ZZZZ..........')
             time.sleep(3600)
 
+
 def main():
     # raw_folder = r'data\temp_dicom'
     # store_folder = r'data\Processed'
     # failed_folder = r'data\Failed'
-    raw_folder = r'C:\Users\yangs\Desktop\data\dicom'
-    store_folder = r'C:\Users\yangs\Desktop\data\processed'
-    failed_folder = r'C:\Users\yangs\Desktop\data\failed'
-    segment_model_folder = r'd:\SuccessfulModel\ProstateSegmentTrumpetNet'
-    detect_model_folder = r'd:\SuccessfulModel\PCaDetectTrumpetNetBlurryROI1500QA_ZYD_Recheck_V1'
-    processor = AutoProcessor(raw_folder, store_folder, failed_folder, segment_model_folder, detect_model_folder, is_overwrite=True)
-    processor.IterativeCase()
+    raw_folder = r'D:\BaiduNetdiskDownload\tgse\1.2'
+    store_folder = r'D:\BaiduNetdiskDownload\tgse\1.2'
+    failed_folder = r'D:\BaiduNetdiskDownload\tgse\1.2'
+    # segment_model_folder = r'd:\SuccessfulModel\ProstateSegmentTrumpetNet'
+    # detect_model_folder = r'd:\SuccessfulModel\PCaDetectTrumpetNetBlurryROI1500QA_ZYD_Recheck_V1'
+    dwi_processor = DwiProcessor()
+    # for case in os.listdir(raw_folder):
+    #     case_folder = os.path.join(raw_folder, case)
+        # processor.SeperateDWI(case_folder)
+    dwi_processor.Seperate4DDwiFile(r'D:\BaiduNetdiskDownload\tgse\1.2\CAO_JIAN_LIANG_01211502\tgse_diff_b50_1000_tra_p2_3ddiagno.nii.gz')
 
 if __name__ == '__main__':
     main()

@@ -6,12 +6,12 @@ import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
-from T4T.Utility.Data import *
-from T4T.Utility.CallBacks import EarlyStopping
-from T4T.Utility.Initial import HeWeightInit
+from CnnTools.T4T.Utility.Data import *
+from CnnTools.T4T.Utility.CallBacks import EarlyStopping
+from CnnTools.T4T.Utility.Initial import HeWeightInit
 
-from MeDIT.Others import MakeFolder, CopyFile
-from MeDIT.Augment import *
+from BasicTool.MeDIT.Others import MakeFolder, CopyFile
+from BasicTool.MeDIT.Augment import *
 
 from RenJi.Network3D.ResNet3D import GenerateModel
 from RenJi.SegModel2D.UNet import UNet

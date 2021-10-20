@@ -93,31 +93,45 @@ class Dcm2Nii:
                 continue
 
 
+# def CopyNii(src_root, des_root):
+#     if not os.path.exists(des_root):
+#         os.mkdir(des_root)
+#     for root, dirs, files in os.walk(src_root):
+#         if len(files) > 0 and len(dirs) == 0:
+#             case_name = Path(root).name
+#             case_root = Path(root).parent
+#             while True:
+#                 if len(str(case_name)) > 9:
+#                     break
+#                 else:
+#                     case_name = Path(case_root).name
+#                     case_root = Path(case_root).parent
+#             des_folder = os.path.join(des_root, case_name)
+#             if not os.path.exists(des_folder):
+#                 os.mkdir(des_folder)
+#             [shutil.copyfile(os.path.join(root, file), os.path.join(des_folder, file)) for file in files if file.endswith('.nii')]
+
 def CopyNii(src_root, des_root):
     if not os.path.exists(des_root):
         os.mkdir(des_root)
-    for root, dirs, files in os.walk(src_root):
-        if len(files) > 0 and len(dirs) == 0:
-            case_name = Path(root).name
-            case_root = Path(root).parent
-            while True:
-                if len(str(case_name)) > 9:
-                    break
-                else:
-                    case_name = Path(case_root).name
-                    case_root = Path(case_root).parent
-            des_folder = os.path.join(des_root, case_name)
-            if not os.path.exists(des_folder):
-                os.mkdir(des_folder)
-            [shutil.copyfile(os.path.join(root, file), os.path.join(des_folder, file)) for file in files if file.endswith('.nii')]
+    for case in os.listdir(src_root):
+        try:
+            case_name = '{} {}'.format(case.split(' ')[0], case.split(' ')[1])
+            src_folder = os.path.join(src_root, '{}/2'.format(case))
+            a = [file for file in os.listdir(src_folder) if file.endswith('.nii')]
+            if len(a) == 0:
+                print(case)
+            # [shutil.copyfile(os.path.join(src_folder, file), os.path.join(des_root, '{}.nii'.format(case_name))) for file in os.listdir(src_folder) if file.endswith('.nii')]
+        except Exception as e:
+            print(case, e)
 
 if __name__ == '__main__':
-    raw_folder = r'Z:\Task01_BrainTumour\Task01_BrainTumour\P'
-    store_folder = r'Z:\Task01_BrainTumour\Task01_BrainTumour\Nii'
-    failed_folder = r'Z:\Task01_BrainTumour\Task01_BrainTumour\Nii'
-    processor = Dcm2Nii(raw_folder, store_folder, failed_folder, is_overwrite=True)
-    processor.InerativeCase()
-    # CopyNii(raw_folder, store_folder)
+    raw_folder = r'Z:\RenJi\ExternalTest\external test'
+    store_folder = r'Z:\RenJi\ExternalTest\CH2'
+    failed_folder = r'Z:\RenJi\ExternalTest\CH2'
+    # processor = Dcm2Nii(raw_folder, store_folder, failed_folder, is_overwrite=True)
+    # processor.InerativeCase()
+    CopyNii(raw_folder, store_folder)
     # for case in os.listdir(store_folder):
     #     case_folder = os.path.join(store_folder, case)
     #     if len(os.listdir(case_folder)) == 0:

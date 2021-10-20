@@ -35,17 +35,18 @@ def MaxRowCol():
 
 def Resolution():
     resolution_list = []
-    folder = r'Z:\RenJi\LVA finished 2CH_MASK 20210910\LVA finished 2CH_MASK'
+    folder = r'Z:\RenJi\RawDataUseful\Combine'
     for case in sorted(os.listdir(folder)):
         case_folder = os.path.join(folder, case)
-        # name_list = [name for name in os.listdir(case_folder) if 'MASK' not in name]
-        # image_path = os.path.join(case_folder, name_list[0])
-        image_path = os.path.join(case_folder, '2CH_MASK.nii.gz')
-        image = sitk.ReadImage(image_path)
-        print(image.GetSpacing(), image.GetSize())
-        # resolution_list.append([image.GetSpacing()[0], image.GetSpacing()[1]])
-    # print(max(resolution_list, key=resolution_list.count))
-# Resolution()
+        name_list = [name for name in os.listdir(case_folder) if '3CH' in name]
+        if len(name_list) > 0:
+            image_path = os.path.join(case_folder, name_list[0])
+            # image_path = os.path.join(case_folder, '2CH_MASK.nii.gz')
+            image = sitk.ReadImage(image_path)
+            # print(image.GetSpacing(), image.GetSize())
+            resolution_list.append([image.GetSpacing()[0], image.GetSpacing()[1]])
+    print(max(resolution_list, key=resolution_list.count))
+Resolution()
 
 
 def AAAA():
