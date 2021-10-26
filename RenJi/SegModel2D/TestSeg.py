@@ -1,3 +1,5 @@
+import os
+from copy import deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -9,6 +11,7 @@ from T4T.Utility.Data import *
 
 from RenJi.SegModel2D.UNet import UNet
 from RenJi.Metric.ROC import Dice, Dice4Numpy
+from Tools import KeepLargest
 
 
 def EnsembleInference(model_root, data_root, model_name, data_type, weights_list=None):
@@ -89,19 +92,18 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
 
 
 def Inference(model_root, data_root, model_name, data_type):
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    input_shape = (150, 150)
-    batch_size = 1
+    input_shape = (200, 200)
+    batch_size = 12
     model_folder = os.path.join(model_root, model_name)
 
-    # sub_list = pd.read_csv(os.path.join(data_root, 'normal_{}.csv'.format(data_type)), index_col='CaseName').index.tolist()
-    sub_list = pd.read_csv(os.path.join(data_root, '{}_name.csv'.format(data_type)),
-                           index_col='CaseName').index.tolist()
+    sub_list = pd.read_csv(os.path.join(data_root, 'normal_{}.csv'.format(data_type)), index_col='CaseName').index.tolist()
+    sub_list = ['2ch_{}'.format(case) for case in sub_list] + ['3ch_{}'.format(case) for case in sub_list]
+    # sub_list = ['2ch_{}'.format(case) for case in sub_list]
 
     data = DataManager(sub_list=sub_list)
 
-    data.AddOne(Image2D(data_root + '/Example/NPY', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/Example/RoiNPY_Dilation', shape=input_shape, is_roi=True), is_input=False)
+    data.AddOne(Image2D(data_root + '/NPY', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/RoiNPY', shape=input_shape, is_roi=True), is_input=False)
     data_loader = DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=36, pin_memory=True)
 
     model = UNet(in_channels=1, out_channels=1).to(device)
@@ -151,14 +153,18 @@ def Visualization(npy_folder, data_type='test'):
     image = np.squeeze(np.load(os.path.join(npy_folder, '{}_image.npy'.format(data_type))))
 
     dice_list = [Dice4Numpy(preds[index], label[index]) for index in range(preds.shape[0])]
+    print(sum(dice_list) / len(dice_list))
 
     sort_index = np.argsort(np.array(dice_list))
     for index in [sort_index[0], sort_index[sort_index.shape[0]//2], sort_index[-1]]:
         print('Dice: {:.3f}'.format(Dice4Numpy(preds[index], label[index])))
+        binary_pred = deepcopy(preds)
+        binary_pred[binary_pred >= 0.5] = 1
+        binary_pred[binary_pred < 0.5] = 0
         plt.figure(figsize=(8, 8))
         plt.imshow(image[index], cmap='gray')
         plt.contour(label[index], colors='r')
-        plt.contour(preds[index], colors='y')
+        plt.contour(binary_pred[index], colors='y')
         plt.gca().xaxis.set_major_locator(plt.NullLocator())
         plt.gca().yaxis.set_major_locator(plt.NullLocator())
         plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
@@ -214,46 +220,50 @@ def InferenceByCase(model_root, data_root, model_name, data_type):
 if __name__ == '__main__':
     model_root = r'/home/zhangyihong/Documents/RenJi/SegModel'
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
-    model_name = 'UNet_0922'
+    model_name = 'UNet_1026_mix23'
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
 
-    # EnsembleInference(model_root, data_root, model_name, 'train', weights_list=None)
-    # print()
-    # EnsembleInference(model_root, data_root, model_name, 'val', weights_list=None)
-    # print()
-    # EnsembleInference(model_root, data_root, model_name, 'test', weights_list=None)
+    Inference(model_root, data_root, model_name, data_type='train')
+    print()
+    Inference(model_root, data_root, model_name, data_type='val')
+    print()
+    Inference(model_root, data_root, model_name, data_type='test')
 
-    # Inference(model_root, data_root, model_name, data_type='train')
-    # print()
-    # Inference(model_root, data_root, model_name, data_type='val')
-    # print()
-    # Inference(model_root, data_root, model_name, data_type='test')
-
-    # ShowHist(os.path.join(model_root, model_name), data_type='train')
-    # ShowHist(os.path.join(model_root, model_name), data_type='val')
-    # ShowHist(os.path.join(model_root, model_name), data_type='test')
-    # Visualization(os.path.join(model_root, model_name), data_type='test')
+    ShowHist(os.path.join(model_root, model_name), data_type='train')
+    ShowHist(os.path.join(model_root, model_name), data_type='val')
+    ShowHist(os.path.join(model_root, model_name), data_type='test')
+    Visualization(os.path.join(model_root, model_name), data_type='test')
 
     # Inference(model_root, data_root, model_name, data_type='non_alltrain')
     # ShowHist(os.path.join(model_root, model_name), data_type='non_alltrain')
     # Visualization(os.path.join(model_root, model_name), data_type='non_alltrain')
     # InferenceByCase(model_root, data_root, model_name, 'non_alltrain')
+    #
+    os.mkdir(os.path.join(model_root, '{}/Image'.format(model_name)))
+    os.mkdir(os.path.join(model_root, '{}/Image/Train'.format(model_name)))
+    os.mkdir(os.path.join(model_root, '{}/Image/Val'.format(model_name)))
+    os.mkdir(os.path.join(model_root, '{}/Image/Test'.format(model_name)))
+    name = ['Train', 'Val', 'Test']
+    for index, type in enumerate(['train', 'val', 'test']):
+        label = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_label.npy'.format(type))))
+        preds = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_preds.npy'.format(type))))
+        image = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_image.npy'.format(type))))
+        preds[preds >= 0.5] = 1
+        preds[preds < 0.5] = 0
+        preds = KeepLargest(preds)
 
-    label = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_label.npy'.format('non_alltrain'))))
-    preds = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_preds.npy'.format('non_alltrain'))))
-    image = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_image.npy'.format('non_alltrain'))))
-    preds[preds >= 0.5] = 1
-    preds[preds < 0.5] = 0
+        for slice in range(label.shape[0]):
 
-    for slice in range(label.shape[0]):
-        plt.figure(figsize=(8, 8))
-        plt.imshow(image[slice]*binary_dilation(preds[slice], structure=np.ones((11, 11))), cmap='gray')
-        plt.gca().xaxis.set_major_locator(plt.NullLocator())
-        plt.gca().yaxis.set_major_locator(plt.NullLocator())
-        plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        plt.savefig(os.path.join(os.path.join(os.path.join(model_root, model_name), '{}_crop.jpg'.format(slice))))
-        # plt.show()
-        plt.close()
+            plt.figure(figsize=(8, 8))
+            plt.imshow(image[slice], cmap='gray')
+            plt.contour(preds[slice], colors='y')
+            plt.contour(label[slice], colors='r')
+            plt.gca().xaxis.set_major_locator(plt.NullLocator())
+            plt.gca().yaxis.set_major_locator(plt.NullLocator())
+            plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+            plt.savefig(os.path.join(os.path.join(os.path.join(model_root, '{}/Image/{}'.format(model_name, name[index])), '{}.jpg'.format(slice))))
+            # plt.show()
+            plt.close()
 
 

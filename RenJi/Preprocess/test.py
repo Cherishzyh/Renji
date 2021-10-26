@@ -286,30 +286,71 @@ def Compare3CHCase():
 # print(sitk.ReadImage(r'Z:\RenJi\RawDataUseful\Combine\20140923 suyongming\501_B-TFE_BH_3CH.nii').GetSize())
 # print(sitk.ReadImage(r'Z:\RenJi\3CHHeathy20211012\3CH\20161020 chenzhonghua\3CH_MASK.nii.gz').GetSpacing())
 
-# def Combine():
-#     raw_data_folder = r'Z:\RenJi\RawDataUseful\Combine'
-#     case_list = pd.read_csv(r'Z:\RenJi\normal_case.csv', index_col='CaseName').index.tolist()
-#     for case in os.listdir(raw_data_folder):
-#         if '{} {}'.format(case.split(' ')[0], case.split(' ')[1]) in case_list:
-#             print()
 
-raw_data_folder = r'Z:\RenJi\RawDataUseful\Combine'
+def Combine():
+    folder = r'/home/zhangyihong/Documents/RenJi/3CHROINPY'
+    case_list = os.listdir(folder)
+    # case_list = [case.split('.npy')[0] for case in case_list]
+    for case in case_list:
+        shutil.copyfile(os.path.join(r'/home/zhangyihong/Documents/RenJi/3CHROINPY', case),
+                        os.path.join(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY', '3ch_{}'.format(case)))
+# Combine()
 
-for case in os.listdir(raw_data_folder):
-    if os.path.exists(os.path.join(raw_data_folder, '{}/resize_3ch.nii.gz'.format(case))):
-        os.remove(os.path.join(raw_data_folder, '{}/resize_3ch.nii.gz'.format(case)))
-    if os.path.exists(os.path.join(raw_data_folder, '{}/mask_3ch.nii.gz'.format(case))):
-        os.remove(os.path.join(raw_data_folder, '{}/mask_3ch.nii.gz'.format(case)))
-#     case_folder = os.path.join(raw_data_folder, case)
-#     case_list = [data for data in os.listdir(case_folder) if '501' in data]
+# for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/NPY'):
+#     data = np.squeeze(np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/NPY', case)))
+#     roi = np.squeeze(np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY', case)))
 #
-#
-#     case_list = [data for data in os.listdir(case_folder) if '3CH' in data]
-#     case_list = [data for data in case_list if data != '3CH_MASK.nii.gz']
-#     if len(case_list) == 0:
-#         print(case)
+#     plt.imshow(data[0], cmap='gray')
+#     plt.contour(roi[0], color='r')
+#     plt.savefig(os.path.join(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/Image', '{}.jpg'.format(case.split('.npy')[0])))
+#     plt.close()
 
-    # if len(case_list) == 1:
-    #     data_name = case_list[0]
-    #     new_name = '{}_3CH.nii'.format(data_name.split('.nii'))
-    #     os.rename(os.path.join(case_folder, data_name), os.path.join(case_folder, new_name))
+
+# data_folder = r'/home/zhangyihong/Documents/RenJi/3CHROINPY'
+# for case in os.listdir(data_folder):
+#     if os.path.exists(os.path.join(r'/home/zhangyihong/Documents/RenJi/2CHNPY', case)):
+#         os.remove(os.path.join(r'/home/zhangyihong/Documents/RenJi/2CHNPY', case))
+#     if os.path.exists(os.path.join(r'/home/zhangyihong/Documents/RenJi/3CHNPY', case)):
+#         os.remove(os.path.join(r'/home/zhangyihong/Documents/RenJi/3CHNPY', case))
+
+# case_list = [case for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/2CHNPY')
+#              if case not in os.listdir(r'/home/zhangyihong/Documents/RenJi/3CHNPY')]
+# print(case_list)
+# label = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/label_2cl.csv', index_col='CaseName')
+# for case in case_list:
+#     case = case.split('.npy')[0]
+#     if case in label.index.tolist():
+#         continue
+#     else:
+#         print(case, 'not in label')
+
+from MeDIT.Normalize import NormalizeZ
+for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY'):
+    if '2ch_' in case:
+        data = np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY', case))
+        print(data.mean(), data.std())
+        # norm_data = NormalizeZ(data)
+        # np.save(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/NPY/{}'.format(case), norm_data)
+
+
+
+# external_test = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/ExternalTest/external_test.csv', index_col='CaseName')
+# case_list = []
+# label_list = []
+# for case in external_test.index:
+#     case_list.append(case)
+#     if external_test.loc[case, 'Label'] > 0:
+#         label = 1
+#         label_list.append(label)
+#     elif external_test.loc[case, 'Label'] == 0:
+#         label = 0
+#         label_list.append(label)
+#     else:
+#         print('error: {} label={}'.format(case, external_test.loc[case, 'Label']))
+#         raise Exception
+
+# new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
+# new_df.to_csv(r'/home/zhangyihong/Documents/RenJi/ExternalTest/external_test_2cl.csv', index=False)
+
+# new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
+# new_df.to_csv(r'/home/zhangyihong/Documents/RenJi/ExternalTest/external_test_2cl.csv', index=False)

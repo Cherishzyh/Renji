@@ -92,7 +92,6 @@ class Dcm2Nii:
                 # self.MoveFilaedCase(case_folder)
                 continue
 
-
 # def CopyNii(src_root, des_root):
 #     if not os.path.exists(des_root):
 #         os.mkdir(des_root)
@@ -117,20 +116,23 @@ def CopyNii(src_root, des_root):
     for case in os.listdir(src_root):
         try:
             case_name = '{} {}'.format(case.split(' ')[0], case.split(' ')[1])
-            src_folder = os.path.join(src_root, '{}/2'.format(case))
+            src_folder = os.path.join(src_root, '{}/{}/2'.format(case, case))
             a = [file for file in os.listdir(src_folder) if file.endswith('.nii')]
             if len(a) == 0:
                 print(case)
-            # [shutil.copyfile(os.path.join(src_folder, file), os.path.join(des_root, '{}.nii'.format(case_name))) for file in os.listdir(src_folder) if file.endswith('.nii')]
+            [shutil.copyfile(os.path.join(src_folder, file), os.path.join(des_root, '{}.nii'.format(case_name))) for file in os.listdir(src_folder) if file.endswith('.nii')]
         except Exception as e:
             print(case, e)
 
 if __name__ == '__main__':
-    raw_folder = r'Z:\RenJi\ExternalTest\external test'
+    raw_folder = r'Z:\RenJi\ExternalTest\TVT'
     store_folder = r'Z:\RenJi\ExternalTest\CH2'
-    failed_folder = r'Z:\RenJi\ExternalTest\CH2'
-    # processor = Dcm2Nii(raw_folder, store_folder, failed_folder, is_overwrite=True)
+    # failed_folder = r'Z:\RenJi\ExternalTest\CH2'
+    # processor = Dcm2Nii(raw_folder=r'C:\Users\ZhangYihong\Desktop\aaaa',
+    #                     processed_folder=r'C:\Users\ZhangYihong\Desktop\aaaa',
+    #                     failed_folder=r'C:\Users\ZhangYihong\Desktop\aaaa', is_overwrite=True)
     # processor.InerativeCase()
+    # processor.SeperateDWI(r'X:\RawData\BCR-ECE-score\BCR-ECE-score\CSJ^chen shi jie')
     CopyNii(raw_folder, store_folder)
     # for case in os.listdir(store_folder):
     #     case_folder = os.path.join(store_folder, case)

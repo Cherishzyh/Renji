@@ -1,22 +1,23 @@
 import os.path
 import shutil
 
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
 from MeDIT.Augment import *
-from MeDIT.Others import MakeFolder
+from MeDIT.Others import MakeFolder, CopyFile
 
 from T4T.Utility.Data import *
 from T4T.Utility.CallBacks import EarlyStopping
 from T4T.Utility.Initial import HeWeightInit
+from T4T.Utility import ImageProcessor
 
 from RenJi.SegModel2D.UNet import UNet
 from RenJi.Metric.Loss import DiceLoss
 from RenJi.Metric.ROC import Dice
-
 
 def ClearGraphPath(graph_path):
     if not os.path.exists(graph_path):
@@ -63,9 +64,9 @@ def Train(device, model_root, model_name, data_root):
     }
 
     train_csv_list = pd.read_csv(os.path.join(data_root, 'normal_train.csv'), index_col='CaseName').index.tolist()
-    train_list = ['2ch_{}'.format(case) for case in train_csv_list] + ['3ch_{}'.format(case) for case in train_csv_list]
+    train_list = ['2ch_{}'.format(case) for case in train_csv_list]
     val_csv_list = pd.read_csv(os.path.join(data_root, 'normal_val.csv'), index_col='CaseName').index.tolist()
-    val_list = ['2ch_{}'.format(case) for case in val_csv_list] + ['3ch_{}'.format(case) for case in val_csv_list]
+    val_list = ['2ch_{}'.format(case) for case in val_csv_list]
 
     train_loader, train_batches = _GetLoader(data_root, train_list, param_config, input_shape, batch_size, True)
     val_loader, val_batches = _GetLoader(data_root, val_list, None, input_shape, batch_size, True)
@@ -77,13 +78,11 @@ def Train(device, model_root, model_name, data_root):
     bce_loss = nn.BCEWithLogitsLoss()
     dice_loss = DiceLoss()
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.5, verbose=True)
-    early_stopping = EarlyStopping(store_path=str(model_folder / '{}-{:.6f}.pt'), patience=100, verbose=True)
+    early_stopping = EarlyStopping(store_path=str(model_folder / '{}-{:.6f}.pt'), patience=50, verbose=True)
     writer = SummaryWriter(log_dir=str(model_folder / 'log'), comment='Net')
 
     for epoch in range(total_epoch):
         train_loss, val_loss = 0., 0.
-        train_dice_loss, val_dice_loss = 0., 0.
-        train_bce_loss, val_bce_loss = 0., 0.
         train_dice, val_dice = 0., 0.
 
         model.train()
@@ -97,15 +96,11 @@ def Train(device, model_root, model_name, data_root):
 
             optimizer.zero_grad()
 
-            bce = bce_loss(preds, outputs)
-            dice = dice_loss(torch.sigmoid(preds), outputs)
-            loss = dice + bce
+            loss = bce_loss(preds, outputs) + dice_loss(torch.sigmoid(preds), outputs)
             loss.backward()
             optimizer.step()
 
             train_loss += loss.item()
-            train_dice_loss += dice.item()
-            train_bce_loss += bce.item()
 
             train_dice += Dice(torch.sigmoid(preds.detach()), outputs.detach())
 
@@ -119,13 +114,9 @@ def Train(device, model_root, model_name, data_root):
 
                 preds = model(image)
 
-                bce = bce_loss(preds, outputs)
-                dice = dice_loss(torch.sigmoid(preds), outputs)
-                loss = dice + bce
+                loss = bce_loss(preds, outputs) + dice_loss(torch.sigmoid(preds), outputs)
 
                 val_loss += loss.item()
-                val_dice_loss += dice.item()
-                val_bce_loss += bce.item()
 
                 val_dice += Dice(torch.sigmoid(preds.detach()), outputs.detach())
 
@@ -135,13 +126,9 @@ def Train(device, model_root, model_name, data_root):
                 writer.add_histogram(name + '_data', param.cpu().detach().numpy(), epoch + 1)
 
         writer.add_scalars('Loss', {'train_loss': train_loss / train_batches,
-                                    'train_bce_loss': train_bce_loss / train_batches,
-                                    'train_dice_loss': train_dice_loss / train_batches,
-                                    'val_loss': val_loss / val_batches,
-                                    'val_bce_loss': val_bce_loss / val_batches,
-                                    'val_dice_loss': val_dice_loss / val_batches
-                                    }, epoch + 1)
-        writer.add_scalars('Dice', {'train_dice': train_dice / train_batches, 'val_dice': val_dice / val_batches}, epoch + 1)
+                                    'val_loss': val_loss / val_batches}, epoch + 1)
+        writer.add_scalars('Dice', {'train_dice': train_dice / train_batches,
+                                    'val_dice': val_dice / val_batches}, epoch + 1)
 
         print('Epoch {}:\tloss: {:.3f}, val-loss: {:.3f}; train-dice: {:.3f}, val-dice: {:.3f}'.format(
             epoch + 1, train_loss / train_batches, val_loss / val_batches,
@@ -162,4 +149,4 @@ if __name__ == '__main__':
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    Train(device, model_root, 'UNet_1026_mix23_1', data_root)
+    Train(device, model_root, 'UNet_1026_2ch', data_root)
