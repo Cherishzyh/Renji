@@ -123,4 +123,9 @@ def CheckbySlice():
         # plt.contour(roi, colors='r')
         # plt.savefig(os.path.join(r'/home/zhangyihong/Documents/RenJi/Data/SegData/Image', case.split('.npy')[0]))
         # plt.close()
-CheckbySlice()
+# CheckbySlice()
+
+
+data_folder = r'Z:\RenJi\2CH 20210910\2CH_MASK Data\20140923 suyongming'
+image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(data_folder, 'resize_2ch_1117.nii.gz')))
+print(image.shape)
