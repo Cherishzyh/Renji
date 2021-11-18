@@ -324,13 +324,15 @@ def Combine():
 #     else:
 #         print(case, 'not in label')
 
-from MeDIT.Normalize import NormalizeZ
-for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY'):
-    if '2ch_' in case:
-        data = np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY', case))
-        print(data.mean(), data.std())
-        # norm_data = NormalizeZ(data)
-        # np.save(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/NPY/{}'.format(case), norm_data)
+# from MeDIT.Normalize import NormalizeZ
+# for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/NPY5slice/2CHPredDilated'):
+#     data = np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/NPY5slice/2CHPredDilated', case))
+#     print(data.std())
+    # data = np.asarray(data, dtype=np.int32)
+    # new_data = np.concatenate([data[9:12], data[-2:]], axis=0)
+    # print(new_data.shape)
+    # np.save(os.path.join(r'/home/zhangyihong/Documents/RenJi/ExternalTest/3CHPredDilated_5slice', case), new_data)
+
 
 
 
@@ -354,3 +356,109 @@ for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/CaseWithROI/RoiNPY'):
 
 # new_df = pd.DataFrame({'CaseName': case_list, 'Label': label_list})
 # new_df.to_csv(r'/home/zhangyihong/Documents/RenJi/ExternalTest/external_test_2cl.csv', index=False)
+
+
+# from scipy.ndimage import binary_dilation
+# for case in os.listdir(r'/home/zhangyihong/Documents/RenJi/3CHPredROI/'):
+#     data = np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/3CHPredROI', case))
+#     data_dilate = binary_dilation(np.where(data > 0.5, 1, 0), structure=np.ones((1, 11, 11)))
+#     np.save(os.path.join(r'/home/zhangyihong/Documents/RenJi/3CHPredROIDilated', case), np.asarray(data_dilate, dtype=np.int32))
+
+
+# data_root = r'/home/zhangyihong/Documents/RenJi/3CHNPY'
+# roi_root = r'/home/zhangyihong/Documents/RenJi/3CHPredROIDilated'
+# new_data_root = r'/home/zhangyihong/Documents/RenJi/ExternalTest/2CHNPY_5Slice'
+# os.mkdir(r'/home/zhangyihong/Documents/RenJi/ExternalTest/2CHNPY_5Slice')
+# for case in sorted(os.listdir(data_root)):
+#     case_path = os.path.join(data_root, case)
+#     data = np.load(case_path)
+#     roi = np.load(os.path.join(roi_root, case))
+#     for index in [9, 10, 11, 28, 29]:
+#         plt.figure(figsize=(8, 8), dpi=100)
+#         plt.gca().xaxis.set_major_locator(plt.NullLocator())
+#         plt.gca().yaxis.set_major_locator(plt.NullLocator())
+#         plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+#         plt.margins(0, 0)
+#         plt.imshow(data[index]*roi[index], cmap='gray')
+#         plt.axis('off')
+#         plt.show()
+    # plt.figure(figsize=(8, 8), dpi=100)
+    # plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    # plt.gca().yaxis.set_major_locator(plt.NullLocator())
+    # plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    # plt.margins(0, 0)
+    # plt.imshow(data[0], cmap='gray')
+    # plt.contour(roi[0], colors='r')
+    # plt.axis('off')
+    # plt.show()
+    # break
+#     print(data.mean())
+    # new_data = np.concatenate([data[9: 12], data[-2:]], axis=0)
+    # np.save(os.path.join(new_data_root, case), new_data)
+
+# case_list = os.listdir(r'/home/zhangyihong/Documents/RenJi/2CHNPY')
+# case_list = [case.split('.npy')[0] for case in case_list]
+# label = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/label_2cl.csv', index_col='CaseName')
+#
+# cv1 = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/non_train-cv1.csv', index_col='CaseName')
+# cv2 = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/non_train-cv2.csv', index_col='CaseName')
+# cv3 = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/non_train-cv3.csv', index_col='CaseName')
+# cv4 = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/non_train-cv4.csv', index_col='CaseName')
+# cv5 = pd.read_csv(r'/home/zhangyihong/Documents/RenJi/non_train-cv5.csv', index_col='CaseName')
+#
+# label_list = []
+# for case in cv1.index:
+#     if case in case_list:
+#         label_list.append(label.loc[case, 'Label'])
+# print(len(label_list), sum(label_list),  len(label_list)-sum(label_list))
+#
+# label_list = []
+# for case in cv2.index:
+#     if case in case_list:
+#         label_list.append(label.loc[case, 'Label'])
+# print(len(label_list), sum(label_list),  len(label_list)-sum(label_list))
+#
+# label_list = []
+# for case in cv3.index:
+#     if case in case_list:
+#         label_list.append(label.loc[case, 'Label'])
+# print(len(label_list), sum(label_list),  len(label_list)-sum(label_list))
+#
+# label_list = []
+# for case in cv4.index:
+#     if case in case_list:
+#         label_list.append(label.loc[case, 'Label'])
+# print(len(label_list), sum(label_list),  len(label_list)-sum(label_list))
+#
+# label_list = []
+# for case in cv5.index:
+#     if case in case_list:
+#         label_list.append(label.loc[case, 'Label'])
+# print(len(label_list), sum(label_list),  len(label_list)-sum(label_list))
+
+
+
+# data_folder = r'/home/zhangyihong/Documents/RenJi/ExternalTest/3CHNPY_5Slice'
+# for case in os.listdir(data_folder):
+#     data = np.squeeze(np.load(os.path.join(data_folder, case)))
+#     roi = np.squeeze(np.load(os.path.join(r'/home/zhangyihong/Documents/RenJi/ExternalTest/3CHPredROI', case)))
+#     plt.imshow(data[0], cmap='gray')
+#     plt.contour(roi[0], colors='r')
+#     plt.savefig(os.path.join(r'/home/zhangyihong/Documents/RenJi/ExternalTest/3CHImage', '{}.jpg'.format(case)))
+#     plt.close()
+
+
+root = r'Z:\RenJi\ExternalTest\external test'
+for case in os.listdir(root):
+    try:
+        case_folder = os.path.join(root, '{}/2'.format(case, case))
+        nii_list = [case for case in os.listdir(case_folder) if case.endswith('.nii')]
+        shutil.copyfile(os.path.join(case_folder, nii_list[0]),
+                        r'Z:\RenJi\ExternalTest\CH2\{} {}.nii'.format(case.split(' ')[0], case.split(' ')[1]))
+    except Exception as e:
+        print(case, e)
+
+# print([case for case in os.listdir(r'Z:\RenJi\ExternalTest\CH2') if case not in os.listdir(r'Z:\RenJi\ExternalTest\CH3')])
+
+
+

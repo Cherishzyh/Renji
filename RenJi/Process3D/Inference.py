@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from copy import deepcopy
 from sklearn.metrics import roc_auc_score, roc_curve
-from scipy.ndimage import binary_dilation
+import sklearn.metrics as metrics
 from sklearn.metrics import confusion_matrix
 import torch
 from torch.utils.data import DataLoader
@@ -11,7 +11,8 @@ from MeDIT.Others import IterateCase
 from MeDIT.Normalize import Normalize01
 from MeDIT.Statistics import BinaryClassification
 from T4T.Utility.Data import *
-from RenJi.Network3D.ResNet3D import GenerateModel
+# from RenJi.Network3D.ResNet3D import GenerateModel
+from RenJi.Network3D.MergeResNet3D import GenerateModel
 from RenJi.SegModel2D.UNet import UNet
 # from RenJi.Network3D.ResNet3D_Focus import GenerateModel
 from RenJi.Metric.ConfusionMatrix import F1Score
@@ -151,7 +152,7 @@ def EnsembleInference(model_root, data_root, model_name, data_type, weights_list
     return mean_label, mean_pred
 
 
-def EnsembleInferenceBySeg(model_root, data_root, model_name, data_type, weights_list=None, n_class=2):
+def EnsembleInferenceBySeg(model_root, data_root, model_name, data_type, weights_list=None):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     input_shape = (150, 150)
     batch_size = 8
@@ -161,19 +162,17 @@ def EnsembleInferenceBySeg(model_root, data_root, model_name, data_type, weights
 
     data = DataManager(sub_list=sub_list)
 
-    data.AddOne(Image2D(data_root + '/NPY', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/2CHNPY', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/3CHNPY', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/2CHPredROIDilated', shape=input_shape, is_roi=True))
+    data.AddOne(Image2D(data_root + '/2CHPredROIDilated', shape=input_shape, is_roi=True))
     data.AddOne(Label(data_root + '/label_2cl.csv'), is_input=False)
     data_loader = DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=36, pin_memory=True)
-
-    seg_model_path = r'/home/zhangyihong/Documents/RenJi/SegModel/UNet_0922/90-0.156826.pt'
-    seg_model = UNet(in_channels=1, out_channels=1).to(device)
-    seg_model.load_state_dict(torch.load(str(seg_model_path)))
-    seg_model.eval()
 
     cv_folder_list = [one for one in IterateCase(model_folder, only_folder=True, verbose=0)]
     cv_pred_list, cv_label_list = [], []
     for cv_index, cv_folder in enumerate(cv_folder_list):
-        model =GenerateModel(50, n_input_channels=1, n_classes=n_class).to(device).to(device)
+        model =GenerateModel(50, n_input_channels=1, n_classes=1).to(device).to(device)
         if weights_list is None:
             one_fold_weights_list = [one for one in IterateCase(cv_folder, only_folder=False, verbose=0) if one.is_file()]
             one_fold_weights_list = sorted(one_fold_weights_list,  key=lambda x: os.path.getctime(str(x)))
@@ -186,23 +185,18 @@ def EnsembleInferenceBySeg(model_root, data_root, model_name, data_type, weights
 
         pred_list, label_list = [], []
         model.eval()
-        for inputs, outputs in data_loader:
-            roi = torch.zeros_like(inputs)
-            roi = MoveTensorsToDevice(roi, device)
-            inputs = MoveTensorsToDevice(inputs, device)
+        with torch.no_grad():
+            for inputs, outputs in data_loader:
+                image = MoveTensorsToDevice(inputs, device)
+                image_2ch = image[0] * image[2]
+                image_2ch = torch.unsqueeze(image_2ch, dim=1)
+                image_3ch = image[1] * image[3]
+                image_3ch = torch.unsqueeze(image_3ch, dim=1)
 
-            with torch.no_grad():
-                for slice in range(inputs.shape[1]):
-                    roi[:, slice:slice + 1] = torch.sigmoid(seg_model(inputs[:, slice:slice + 1]))
-            roi[roi >= 0.5] = 1
-            roi[roi < 0.5] = 0
-            dilate_roi = torch.from_numpy(binary_dilation(roi.cpu().detach().numpy(),
-                                                          structure=np.ones((1, 1, 11, 11)))).to(device)
+                preds = model(image_2ch, image_3ch)
 
-            preds = model(torch.unsqueeze(inputs*dilate_roi, dim=1))
-
-            pred_list.extend(torch.softmax(preds, dim=1)[:, -1].cpu().detach())
-            label_list.extend(outputs.int())
+                pred_list.extend(torch.squeeze(torch.sigmoid(preds)).cpu().detach())
+                label_list.extend(outputs.int().cpu().detach())
 
         auc = roc_auc_score(label_list, pred_list)
         print(auc)
@@ -229,8 +223,10 @@ def Result4NPY(model_folder, data_type, n_class=2):
         bc = BinaryClassification()
         bc.Run(pred.tolist(), np.asarray(label, dtype=np.int32).tolist())
         binary_pred = deepcopy(pred)
-        binary_pred[binary_pred >= 0.5] = 1
-        binary_pred[binary_pred < 0.5] = 0
+        fpr, tpr, threshold = metrics.roc_curve(np.asarray(label, dtype=np.int32).tolist(), pred.tolist())
+        index = np.argmax(1 - fpr + tpr)
+        binary_pred[binary_pred >= threshold[index]] = 1
+        binary_pred[binary_pred < threshold[index]] = 0
         cm = confusion_matrix(label.tolist(), binary_pred.tolist())
         ShowCM(cm)
     else:
@@ -271,16 +267,16 @@ def DrawROC(model_folder):
 if __name__ == '__main__':
     from RenJi.Visualization.Show import ShowCM
     model_root = r'/home/zhangyihong/Documents/RenJi/Model'
-    data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
-    model_name = 'ResNet3D_0922_mask_cv_2cl'
+    data_root = r'/home/zhangyihong/Documents/RenJi'
+    model_name = 'ResNet3D_1027_mask_cv_2cl'
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
     # EnsembleInference(model_root, data_root, model_name, data_type='alltrain',  weights_list=None, n_class=2)
     # EnsembleInference(model_root, data_root, model_name, data_type='test',  weights_list=None, n_class=2)
-    # EnsembleInferenceBySeg(model_root, data_root, model_name, data_type='non_alltrain',  weights_list=None, n_class=2)
-    # EnsembleInferenceBySeg(model_root, data_root, model_name, data_type='non_test',  weights_list=None, n_class=2)
-    #
-    Result4NPY(os.path.join(model_root, model_name), data_type='non_alltrain', n_class=2)
-    Result4NPY(os.path.join(model_root, model_name), data_type='non_test', n_class=2)
-    # DrawROC(os.path.join(model_root, model_name))
+    # EnsembleInferenceBySeg(model_root, data_root, model_name, data_type='non_alltrain',  weights_list=None)
+    # EnsembleInferenceBySeg(model_root, data_root, model_name, data_type='non_test',  weights_list=None)
+
+    # Result4NPY(os.path.join(model_root, model_name), data_type='non_alltrain', n_class=2)
+    # Result4NPY(os.path.join(model_root, model_name), data_type='non_test', n_class=2)
+    DrawROC(os.path.join(model_root, model_name))

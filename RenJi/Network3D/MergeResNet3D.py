@@ -7,7 +7,8 @@ import torch.nn.functional as F
 
 
 def get_inplanes():
-    return [64, 128, 256, 512]
+    # return [64, 128, 256, 512]
+    return [32, 64, 128, 256]
 
 def Conv3x3x3(in_planes, out_planes, stride=1):
     return nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -178,7 +179,7 @@ class ResNet(nn.Module):
 class MergeResNet(nn.Module):
 
     def __init__(self, block, layers, block_inplanes, n_input_channels=3, n_classes=400):
-        super().__init__()
+        super(MergeResNet, self).__init__()
 
         self.resnet_a = ResNet(block, layers, block_inplanes, n_input_channels=n_input_channels)
         self.resnet_b = ResNet(block, layers, block_inplanes, n_input_channels=n_input_channels)

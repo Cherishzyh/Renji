@@ -29,10 +29,10 @@ def ClearGraphPath(graph_path):
 def _GetLoader(data_root, sub_list, aug_param_config, input_shape, batch_size, shuffle):
     data = DataManager(sub_list=sub_list, augment_param=aug_param_config)
 
-    data.AddOne(Image2D(data_root + '/NPY', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/RoiNPY', shape=input_shape, is_roi=True), is_input=False)
+    data.AddOne(Image2D(data_root + '/NPYOneSlice', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/ROIOneSlice', shape=input_shape, is_roi=True), is_input=False)
 
-    loader = DataLoader(data, batch_size=batch_size, shuffle=shuffle, num_workers=36, pin_memory=True)
+    loader = DataLoader(data, batch_size=batch_size, shuffle=shuffle, num_workers=24, pin_memory=True)
     batches = np.ceil(len(data.indexes) / batch_size)
     return loader, batches
 
@@ -88,12 +88,10 @@ def Train(device, model_root, model_name, data_root):
 
         model.train()
         for ind, (inputs, outputs) in enumerate(train_loader):
-            image = inputs[:, :1]
-            outputs = outputs[:, :1]
-            image = MoveTensorsToDevice(image, device)
+            inputs = MoveTensorsToDevice(inputs, device)
             outputs = MoveTensorsToDevice(outputs, device)
 
-            preds = model(image)
+            preds = model(inputs)
 
             optimizer.zero_grad()
 
@@ -112,12 +110,10 @@ def Train(device, model_root, model_name, data_root):
         model.eval()
         with torch.no_grad():
             for ind, (inputs, outputs) in enumerate(val_loader):
-                image = inputs[:, :1]
-                outputs = outputs[:, :1]
-                image = MoveTensorsToDevice(image, device)
+                inputs = MoveTensorsToDevice(inputs, device)
                 outputs = MoveTensorsToDevice(outputs, device)
 
-                preds = model(image)
+                preds = model(inputs)
 
                 bce = bce_loss(preds, outputs)
                 dice = dice_loss(torch.sigmoid(preds), outputs)
@@ -159,7 +155,7 @@ def Train(device, model_root, model_name, data_root):
 
 if __name__ == '__main__':
     model_root = r'/home/zhangyihong/Documents/RenJi/SegModel'
-    data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
+    data_root = r'/home/zhangyihong/Documents/RenJi/Data/SegData'
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    Train(device, model_root, 'UNet_1026_mix23_1', data_root)
+    Train(device, model_root, 'UNet_1118', data_root)

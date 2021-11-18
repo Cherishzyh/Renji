@@ -125,15 +125,17 @@ def CopyNii(src_root, des_root):
             print(case, e)
 
 if __name__ == '__main__':
-    raw_folder = r'Z:\RenJi\ExternalTest\TVT'
-    store_folder = r'Z:\RenJi\ExternalTest\CH2'
+    # raw_folder = r'Z:\RenJi\ExternalTest\TVT'
+    # store_folder = r'Z:\RenJi\ExternalTest\CH2'
     # failed_folder = r'Z:\RenJi\ExternalTest\CH2'
-    # processor = Dcm2Nii(raw_folder=r'C:\Users\ZhangYihong\Desktop\aaaa',
-    #                     processed_folder=r'C:\Users\ZhangYihong\Desktop\aaaa',
-    #                     failed_folder=r'C:\Users\ZhangYihong\Desktop\aaaa', is_overwrite=True)
-    # processor.InerativeCase()
-    # processor.SeperateDWI(r'X:\RawData\BCR-ECE-score\BCR-ECE-score\CSJ^chen shi jie')
-    CopyNii(raw_folder, store_folder)
+    processor = Dcm2Nii(raw_folder=r'Z:\RenJi\ExternalTest\external test\20201130 liwenling 1',
+                        processed_folder=r'Z:\RenJi\ExternalTest\external test\20201130 liwenling 1',
+                        failed_folder=r'Z:\RenJi\ExternalTest\external test\20201130 liwenling 1', is_overwrite=True)
+    # processor.InerativeCase()x
+    processor.ConvertDicom2Nii(r'Z:\RenJi\ExternalTest\external test\20201130 liwenling 1\3')
+    # for case in os.listdir(r'C:\Users\ZhangYihong\Desktop\aaaa\OriginalPath\CSJ^chen shi jie'):
+    # processor.SeperateDWI(r'C:\Users\ZhangYihong\Desktop\aaaa\OriginalPath\XSJ^xu shou jun')
+    # CopyNii(raw_folder, store_folder)
     # for case in os.listdir(store_folder):
     #     case_folder = os.path.join(store_folder, case)
     #     if len(os.listdir(case_folder)) == 0:

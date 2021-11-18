@@ -142,6 +142,7 @@ def ShowHist(model_folder, data_type='test'):
     preds = np.load(os.path.join(model_folder, '{}_preds.npy'.format(data_type)))
 
     dice_list = [Dice4Numpy(preds[index], label[index]) for index in range(preds.shape[0])]
+    print('mean_dice: {}'.format(sum(dice_list)/len(dice_list)))
 
     plt.hist(dice_list, bins=50)
     plt.show()
@@ -174,7 +175,7 @@ def Visualization(npy_folder, data_type='test'):
 
 def InferenceByCase(model_root, data_root, model_name, data_type):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    input_shape = (150, 150)
+    input_shape = (200, 200)
     batch_size = 1
     model_folder = os.path.join(model_root, model_name)
 
@@ -220,50 +221,50 @@ def InferenceByCase(model_root, data_root, model_name, data_type):
 if __name__ == '__main__':
     model_root = r'/home/zhangyihong/Documents/RenJi/SegModel'
     data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
-    model_name = 'UNet_1026_mix23'
+    model_name = 'UNet_1026_mix23_use'
 
     device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
-
-    Inference(model_root, data_root, model_name, data_type='train')
-    print()
-    Inference(model_root, data_root, model_name, data_type='val')
-    print()
-    Inference(model_root, data_root, model_name, data_type='test')
-
-    ShowHist(os.path.join(model_root, model_name), data_type='train')
-    ShowHist(os.path.join(model_root, model_name), data_type='val')
-    ShowHist(os.path.join(model_root, model_name), data_type='test')
-    Visualization(os.path.join(model_root, model_name), data_type='test')
+    #
+    # Inference(model_root, data_root, model_name, data_type='train')
+    # print()
+    # Inference(model_root, data_root, model_name, data_type='val')
+    # print()
+    # Inference(model_root, data_root, model_name, data_type='test')
+    #
+    # ShowHist(os.path.join(model_root, model_name), data_type='train')
+    # ShowHist(os.path.join(model_root, model_name), data_type='val')
+    # ShowHist(os.path.join(model_root, model_name), data_type='test')
+    # Visualization(os.path.join(model_root, model_name), data_type='test')
 
     # Inference(model_root, data_root, model_name, data_type='non_alltrain')
     # ShowHist(os.path.join(model_root, model_name), data_type='non_alltrain')
     # Visualization(os.path.join(model_root, model_name), data_type='non_alltrain')
     # InferenceByCase(model_root, data_root, model_name, 'non_alltrain')
     #
-    os.mkdir(os.path.join(model_root, '{}/Image'.format(model_name)))
-    os.mkdir(os.path.join(model_root, '{}/Image/Train'.format(model_name)))
-    os.mkdir(os.path.join(model_root, '{}/Image/Val'.format(model_name)))
-    os.mkdir(os.path.join(model_root, '{}/Image/Test'.format(model_name)))
-    name = ['Train', 'Val', 'Test']
-    for index, type in enumerate(['train', 'val', 'test']):
-        label = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_label.npy'.format(type))))
-        preds = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_preds.npy'.format(type))))
-        image = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_image.npy'.format(type))))
-        preds[preds >= 0.5] = 1
-        preds[preds < 0.5] = 0
-        preds = KeepLargest(preds)
-
-        for slice in range(label.shape[0]):
-
-            plt.figure(figsize=(8, 8))
-            plt.imshow(image[slice], cmap='gray')
-            plt.contour(preds[slice], colors='y')
-            plt.contour(label[slice], colors='r')
-            plt.gca().xaxis.set_major_locator(plt.NullLocator())
-            plt.gca().yaxis.set_major_locator(plt.NullLocator())
-            plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-            plt.savefig(os.path.join(os.path.join(os.path.join(model_root, '{}/Image/{}'.format(model_name, name[index])), '{}.jpg'.format(slice))))
-            # plt.show()
-            plt.close()
-
-
+    # os.mkdir(os.path.join(model_root, '{}/Image'.format(model_name)))
+    # os.mkdir(os.path.join(model_root, '{}/Image/Train'.format(model_name)))
+    # os.mkdir(os.path.join(model_root, '{}/Image/Val'.format(model_name)))
+    # os.mkdir(os.path.join(model_root, '{}/Image/Test'.format(model_name)))
+    # name = ['Train', 'Val', 'Test']
+    # for index, type in enumerate(['train', 'val', 'test']):
+    #     label = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_label.npy'.format(type))))
+    #     preds = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_preds.npy'.format(type))))
+    #     image = np.squeeze(np.load(os.path.join(os.path.join(model_root, model_name), '{}_image.npy'.format(type))))
+    #     preds[preds >= 0.5] = 1
+    #     preds[preds < 0.5] = 0
+    #     preds = KeepLargest(preds)
+    #
+    #     for slice in range(label.shape[0]):
+    #
+    #         plt.figure(figsize=(8, 8))
+    #         plt.imshow(image[slice], cmap='gray')
+    #         plt.contour(preds[slice], colors='y')
+    #         plt.contour(label[slice], colors='r')
+    #         plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    #         plt.gca().yaxis.set_major_locator(plt.NullLocator())
+    #         plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    #         plt.savefig(os.path.join(os.path.join(os.path.join(model_root, '{}/Image/{}'.format(model_name, name[index])), '{}.jpg'.format(slice))))
+    #         # plt.show()
+    #         plt.close()
+    #
+    Inference(model_root, data_root, model_name, data_type='external')

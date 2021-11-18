@@ -146,43 +146,43 @@ def TestResize():
 
 
 def Nii2Npy():
-    nii_folder = r'Z:\RenJi\ExternalTest\ExternalNii'
-    npy_folder = r'Z:\RenJi\ExternalTest\CH2NPY'
-    # npy_roi_folder = r'Z:\RenJi\3CHHeathy20211012\3CHROINPY'
-    image_folder = r'Z:\RenJi\ExternalTest\CH2Image\RL'
+    nii_folder = r'Z:\RenJi\ExternalTest\3CH'
+    npy_folder = r'Z:\RenJi\ExternalTest\3CHNPY'
+    npy_roi_folder = r''
+    image_folder = r'Z:\RenJi\ExternalTest\3CHImage'
     if not os.path.exists(npy_folder):
         os.mkdir(npy_folder)
-    flip_list = os.listdir(r'Z:\RenJi\ExternalTest\CH2Image\RL')
-    flip_list = [case[:case.index('.jpg')] for case in flip_list]
+    flip_list = os.listdir(r'Z:\RenJi\ExternalTest\3CHImage\RL')
+    flip_list = [case.split('.jpg')[0] for case in flip_list]
+    # flip_list = []
     for index, case in enumerate(os.listdir(nii_folder)):
         print('########################## {} / {} ###############################'.
               format(index + 1, len(os.listdir(nii_folder))))
         try:
-            if case not in flip_list:
+            if case != '20210317 liyongliang.nii':
                 continue
-            # if case == '20180109 renjianxin' or case == '20201123 caishuizhong:
-            #     continue
-            case_path = os.path.join(nii_folder, case)
-            case_name = '{} {}'.format(case.split(' ')[0], case.split(' ')[1])
-            image_path = os.path.join(case_path, 'resize_2ch.nii.gz')
-            image = sitk.GetArrayFromImage(sitk.ReadImage(image_path))
+            # case_path = os.path.join(nii_folder, case)
+            # case_name = '{} {}'.format(case.split(' ')[0], case.split(' ')[1])
+            # image_path = os.path.join(case_path, 'resize_3ch_1117.nii.gz')
+            case_name = case.split('.nii')[0]
+            image_path = os.path.join(nii_folder, case)
+            image = np.squeeze(sitk.GetArrayFromImage(sitk.ReadImage(image_path)))
+            if np.ndim(image) > 3:
+                image = image[:, 1]
 
-            # if os.path.exists(os.path.join(case_path, 'mask_3ch.nii.gz')):
-            #     mask_path = os.path.join(case_path, 'mask_3ch.nii.gz')
+            raw_data = ShowFlatten(image)
+
+            # if os.path.exists(os.path.join(case_path, 'mask_3ch_1117.nii.gz')):
+            #     mask_path = os.path.join(case_path, 'mask_3ch_1117.nii.gz')
             #     mask = sitk.GetArrayFromImage(sitk.ReadImage(mask_path))
-            #     if case in flip_list:
-            #         mask = np.rot90(mask, k=3, axes=(1, 2))
-            #     else:
-            #         mask = np.flip(mask, axis=1)
-            #     np.save(os.path.join(npy_roi_folder, '{}.npy'.format(case_name)), mask[np.newaxis, ...])
+            # else:
+            #     mask = np.zeros_like(image)
+            mask = np.zeros_like(image)
 
-            #     mask = np.flip(mask, axis=1)
-            #     center = GetCenter(mask)
-            #     center = [-1, center[1], center[0]]
-            #     image, _ = ExtractBlock(image, shape, center_point=center)
-            #     mask, _ = ExtractBlock(mask, shape, center_point=center)
-
-            ###########################################  2CH  ##########################################################
+            ##########################################  2CH  ##########################################################
+            # image = np.flip(image, axis=1)
+            # mask = np.flip(mask, axis=1)
+            #
             # if case in flip_list:
             #     if np.count_nonzero(image[:, :, 0:(image.shape[2] // 4)]) <= np.count_nonzero(image[:, :, (image.shape[2] * 3 // 4):]):
             #         image = np.flip(image, axis=2)
@@ -191,72 +191,42 @@ def Nii2Npy():
             #     if np.count_nonzero(image[:, :, 0:(image.shape[2] // 4)]) > np.count_nonzero(image[:, :, (image.shape[2] * 3 // 4):]):
             #         image = np.flip(image, axis=2)
             #         mask = np.flip(mask, axis=2)
-
-                # np.save(os.path.join(npy_roi_folder, '{}.npy'.format(case)), mask[np.newaxis, ...])
-            ###########################################  3CH  ##########################################################
-
+            ########################################### 3CH ############################################################
+            if case in flip_list:
+                image = np.flip(image, axis=1)
+                mask = np.flip(mask, axis=1)
+            else:
+                image = np.rot90(image, k=3, axes=(1, 2))
+                mask = np.rot90(mask, k=3, axes=(1, 2))
             ############################################################################################################
-            raw_data = ShowFlatten(image)
-            plt.figure(figsize=(16, 17), dpi=100)
+            image_list = []
+            for index in range(image.shape[0]):
+                image_list.append(Rotate(image[index], {'theta': 45}))
+            image = np.array(image_list)
+
+            if np.sum(mask) > 0:
+                np.save(os.path.join(npy_roi_folder, '{}.npy'.format(case_name)), mask)
+            image = DataClip(image, value=99.9)
+            ###################################################################################
+            flip_data = ShowFlatten(image)
+            plt.figure(dpi=100)
+            plt.subplot(121)
+            plt.axis('off')
+            plt.imshow(raw_data, cmap='gray', vmin=0.)
+            plt.subplot(122)
+            plt.axis('off')
+            plt.imshow(flip_data, cmap='gray', vmin=0.)
             plt.gca().xaxis.set_major_locator(plt.NullLocator())
             plt.gca().yaxis.set_major_locator(plt.NullLocator())
             plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-            plt.margins(0, 0)
-            plt.subplot(223)
-            plt.title(np.sum(Normalize01(image)))
-            plt.axis('off')
-            plt.hist(Normalize01(image).flatten(), bins=100)
 
-            ###################################################################################
-            # if case in flip_list:
-            #     image = np.rot90(image, k=3, axes=(1, 2))
-            # else:
-            #     image = np.flip(image, axis=1)
-
-            # if case in flip_list:
-            #     image = np.rot90(image, k=3, axes=(1, 2))
-            # else:
-            #     image = np.flip(image, axis=1)
-            #     image = np.flip(image, axis=2)
-
-            # image_list = []
-            # for index in range(image.shape[0]):
-            #     image_list.append(Rotate(image[index], {'theta': -45}))
-            if case in flip_list:
-                image = np.flip(image, axis=1)
-                image = np.flip(image, axis=2)
-            else:
-                image = np.flip(image, axis=1)
-            value = 99.995
-            if np.sum(Normalize01(image)) < 250000:
-                while True:
-                    image = DataClip(image, value=value)
-                    if np.sum(Normalize01(image)) >= 250000:
-                        print('clip {} by {}'.format(case, value))
-                        break
-                    else:
-                        value -= 0.005
-            ###################################################################################
-            flip_data = ShowFlatten(image)
-            plt.subplot(221)
-            plt.axis('off')
-            plt.imshow(raw_data, cmap='gray')
-            plt.subplot(222)
-            plt.axis('off')
-            plt.imshow(flip_data, cmap='gray')
-            plt.subplot(224)
-            plt.axis('off')
-            plt.hist(Normalize01(image).flatten(), bins=100)
-            plt.title(np.sum(Normalize01(image)))
             plt.savefig(os.path.join(image_folder, '{}.jpg'.format(case)), pad_inches=0)
-            # plt.show()
             plt.close()
             ###################################################################################
-            np.save(os.path.join(npy_folder, '{}.npy'.format(case_name)), NormalizeZ(image[np.newaxis, ...]))
+            np.save(os.path.join(npy_folder, '{}.npy'.format(case_name)), NormalizeZ(image))
 
         except Exception as e:
             print(e)
-
 
 
 def AddNewAxis():
@@ -421,12 +391,13 @@ def Resampler(image, is_roi=False, expected_resolution=None, expected_shape=None
     if dim_1: expected_shape[1] = shape[1]
     if dim_2: expected_shape[2] = shape[2]
     expected_shape = tuple(expected_shape)
-
+    transform = sitk.Transform()
+    transform.SetIdentity()
     resample_filter = sitk.ResampleImageFilter()
     resample_filter.SetOutputSpacing(expected_resolution)
     resample_filter.SetSize(expected_shape)
     resample_filter.SetOutputPixelType(sitk.sitkFloat32)
-    resample_filter.SetTransform(sitk.AffineTransform(len(shape)))
+    resample_filter.SetTransform(transform)
     if is_roi:
         resample_filter.SetInterpolator(sitk.sitkLinear)
     else:
@@ -437,6 +408,7 @@ def Resampler(image, is_roi=False, expected_resolution=None, expected_shape=None
         data = data[:, 2, ...]
     assert np.ndim(data) == 3
     image_time = sitk.GetImageFromArray(data)
+    image_time.SetSpacing((image.GetSpacing()[0], image.GetSpacing()[1], 1.0))
     image_resize = resample_filter.Execute(image_time)
     data_resize = sitk.GetArrayFromImage(image_resize)
 
@@ -465,20 +437,22 @@ def Resampler(image, is_roi=False, expected_resolution=None, expected_shape=None
 
 
 def TestResampler():
-    folder = r'Z:\RenJi\ExternalTest\CH2'
+    folder = r'Z:\RenJi\2CH 20210910\2CH_MASK Data'
     for index, case in enumerate(sorted(os.listdir(folder))):
         try:
             case_folder = os.path.join(folder, case)
-            name_list = [name for name in os.listdir(case_folder) if '3CH' in name]
-            name_list = [name for name in name_list if name != '3CH_MASK.nii.gz']
+
+            # name_list = [name for name in os.listdir(case_folder) if '3CH' in name]
+            # name_list = [name for name in name_list if name != '3CH_MASK.nii.gz']
+            name_list = [name for name in os.listdir(case_folder) if name.endswith('.nii')]
             image_path = os.path.join(case_folder, name_list[0])
             # case_folder = os.path.join(r'Z:\RenJi\ExternalTest\ExternalNii', case.split('.nii')[0])
             # os.mkdir(case_folder)
-            image_path = os.path.join(folder, case)
+            # image_path = os.path.join(folder, case)
             image = sitk.ReadImage(image_path)
             Resampler(image, is_roi=False, expected_resolution=[1.0416666269302368, 1.0416666269302368, 1],
-                      store_path=os.path.join(case_folder, 'resize_2ch.nii.gz'))
-            mask_path = os.path.join(case_folder, '3CH_MASK.nii.gz')
+                      store_path=os.path.join(case_folder, 'resize_2ch_1117.nii.gz'))
+            mask_path = os.path.join(case_folder, '2CH_MASK.nii.gz')
             if os.path.exists(mask_path):
                 mask = sitk.GetArrayFromImage(sitk.ReadImage(mask_path))
                 if np.ndim(np.squeeze(mask)) == 3:
@@ -488,7 +462,7 @@ def TestResampler():
                 mask = sitk.GetImageFromArray(mask)
                 mask.SetSpacing((image.GetSpacing()[0], image.GetSpacing()[1], 1.))
                 Resampler(mask, is_roi=True, expected_resolution=[1.0416666269302368, 1.0416666269302368, 1],
-                          store_path=os.path.join(case_folder, 'mask_3ch.nii.gz'))
+                          store_path=os.path.join(case_folder, 'mask_2ch_1117.nii.gz'))
             print('--------{} / {}--{} --------'.format(index+1, len(os.listdir(folder)), case))
         except Exception as e:
             print('fail to resample case: {}'.format(case))
@@ -515,11 +489,11 @@ def Concat():
 if __name__ == '__main__':
     # SaveImage()
     # TestResampler()
-    # Nii2Npy()
+    Nii2Npy()
     # CheckNo2CHData()
     # CheckNPY()
     # AddNewAxis()
-    DropNewAxis()
+    # DropNewAxis()
     # SelectSlice()
     # Concat()
 
