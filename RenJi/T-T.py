@@ -126,6 +126,114 @@ def CheckbySlice():
 # CheckbySlice()
 
 
-data_folder = r'Z:\RenJi\2CH 20210910\2CH_MASK Data\20140923 suyongming'
-image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(data_folder, 'resize_2ch_1117.nii.gz')))
-print(image.shape)
+# data_folder = r'Z:\RenJi\2CH 20210910\2CH_MASK Data\20140923 suyongming'
+# image = sitk.GetArrayFromImage(sitk.ReadImage(os.path.join(data_folder, 'resize_2ch_1117.nii.gz')))
+# print(image.shape)
+
+def Image2NPY():
+# ['3CH', 'Image2CHExternal', '2CH', 'Image2CH', '2CHExternal', 'Image3CH', '3CHExternal', 'Image3CHExternal']
+    raw_folder = r'/home/zhangyihong/Documents/RenJi/Data/PredData/3CHExternal'
+    save_folder_5slice = r'/home/zhangyihong/Documents/RenJi/Data/ClassData/3CHExternalROINPYPred_5slice'
+    if not os.path.exists(save_folder_5slice):
+        os.mkdir(save_folder_5slice)
+    save_folder = r'/home/zhangyihong/Documents/RenJi/Data/ClassData/3CHExternalROINPYPred'
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+    for case in os.listdir(raw_folder):
+        case_path = os.path.join(raw_folder, '{}/Mask.nii.gz'.format(case))
+        data = sitk.GetArrayFromImage(sitk.ReadImage(case_path))
+        new_data = np.concatenate([data[9: 12], data[-2:]], axis=0)
+        np.save(os.path.join(save_folder_5slice, '{}.npy'.format(case)), new_data)
+        np.save(os.path.join(save_folder, '{}.npy'.format(case)), data)
+
+
+def CheckData():
+    from MeDIT.Visualization import FlattenImages
+    a = ['3CH', '2CH']
+    for key in a:
+        data_folder = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/{}Pred'.format(key)
+        for case in os.listdir(data_folder):
+            data = np.load(os.path.join(data_folder, case))
+            if data.shape != (30, 180, 180):
+                print(case)
+        # data_flatten = FlattenImages(data, is_show=False)
+        # pred_flatten = FlattenImages(roi, is_show=False)
+        # plt.figure(figsize=(8, 8), dpi=100)
+        # plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        # plt.gca().yaxis.set_major_locator(plt.NullLocator())
+        # plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+        # plt.margins(0, 0)
+        # plt.imshow(data_flatten, cmap='gray', vmin=0.)
+        # plt.contour(pred_flatten, colors='y')
+        # plt.savefig(os.path.join(save_folder, '{}.jpg'.format(case.split('.npy')[0])), pad_inches=0)
+        # plt.close()
+CheckData()
+
+
+def GetCenter(mask):
+    assert (np.ndim(mask) == 2)
+    roi_row = np.sum(mask, axis=1)
+    roi_column = np.sum(mask, axis=0)
+
+    row = np.nonzero(roi_row)[0]
+    column = np.nonzero(roi_column)[0]
+
+    center = [int(np.mean(row)), int(np.mean(column))]
+    return center
+
+
+def CropData():
+    # crop---5slice/5slice_dilate/allslice/allslice_dilate
+    from scipy.ndimage import binary_dilation
+    from MeDIT.ArrayProcess import ExtractBlock
+    a = ['3CH', '2CH', '2CHExternal', '3CHExternal']
+    for key in a:
+        raw_folder = r'/home/zhangyihong/Documents/RenJi/Data/PredData/{}'.format(key)
+
+        data_folder_slice = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/{}Pred_5slice'.format(key)
+        data_folder = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/{}Pred'.format(key)
+        roi_folder_slice_dilated = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/{}ROIPred_5slice'.format(key)
+        roi_folder_dilated = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/{}ROIPred'.format(key)
+        image_folder = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/{}Image'.format(key)
+        if not os.path.exists(data_folder_slice): os.mkdir(data_folder_slice)
+        if not os.path.exists(data_folder): os.mkdir(data_folder)
+        if not os.path.exists(roi_folder_slice_dilated): os.mkdir(roi_folder_slice_dilated)
+        if not os.path.exists(roi_folder_dilated): os.mkdir(roi_folder_dilated)
+        if not os.path.exists(image_folder): os.mkdir(image_folder)
+
+        for case in os.listdir(raw_folder):
+            data_path = os.path.join(raw_folder, '{}/Image.nii.gz'.format(case))
+            roi_path = os.path.join(raw_folder, '{}/Mask.nii.gz'.format(case))
+
+            data = sitk.GetArrayFromImage(sitk.ReadImage(data_path))
+            roi = sitk.GetArrayFromImage(sitk.ReadImage(roi_path))
+            data_slice = np.concatenate([data[9: 12], data[-2:]], axis=0)
+            roi_slice = np.concatenate([roi[9: 12], roi[-2:]], axis=0)
+            try:
+                center = GetCenter(roi[0])
+            except Exception:
+                center = [-1, -1]
+
+            data_crop, _ = ExtractBlock(data, (data.shape[0], 180, 180), [-1, center[0], center[1]])
+            roi_crop, _ = ExtractBlock(roi, (data.shape[0], 180, 180), [-1, center[0], center[1]])
+            data_crop_slice, _ = ExtractBlock(data_slice, (data_slice.shape[0], 180, 180), [-1, center[0], center[1]])
+            roi_crop_slice, _ = ExtractBlock(roi_slice, (data_slice.shape[0], 180, 180), [-1, center[0], center[1]])
+
+            roi_dilate = binary_dilation(roi_crop, structure=np.ones((1, 11, 11)))
+            roi_dilate_slice = binary_dilation(roi_crop_slice, structure=np.ones((1, 11, 11)))
+
+            np.save(os.path.join(data_folder_slice, '{}.npy'.format(case)), data_crop_slice)
+            np.save(os.path.join(roi_folder_slice_dilated, '{}.npy'.format(case)), roi_dilate_slice)
+            np.save(os.path.join(data_folder, '{}.npy'.format(case)), data_crop)
+            np.save(os.path.join(roi_folder_dilated, '{}.npy'.format(case)), roi_dilate)
+
+            plt.figure(figsize=(8, 8), dpi=100)
+            plt.gca().xaxis.set_major_locator(plt.NullLocator())
+            plt.gca().yaxis.set_major_locator(plt.NullLocator())
+            plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+            plt.margins(0, 0)
+            plt.imshow(data_crop[0], cmap='gray', vmin=0.)
+            plt.contour(roi_dilate[0], colors='y')
+            plt.savefig(os.path.join(image_folder, '{}.jpg'.format(case.split('.npy')[0])), pad_inches=0)
+            plt.close()
+# CropData()

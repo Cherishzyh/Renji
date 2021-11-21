@@ -26,10 +26,10 @@ def ClearGraphPath(graph_path):
 def _GetLoader(data_root, sub_list, aug_param_config, input_shape, batch_size, shuffle, is_balance=True):
     data = DataManager(sub_list=sub_list, augment_param=aug_param_config)
 
-    data.AddOne(Image2D(data_root + '/2CHNPY', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/3CHNPY', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/2CHPredROIDilated', shape=input_shape, is_roi=True))
-    data.AddOne(Image2D(data_root + '/3CHPredROIDilated', shape=input_shape, is_roi=True))
+    data.AddOne(Image2D(data_root + '/2CHPred', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/3CHPred', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/2CHROIPred', shape=input_shape, is_roi=True))
+    data.AddOne(Image2D(data_root + '/3CHROIPred', shape=input_shape, is_roi=True))
 
     data.AddOne(Label(data_root + '/label_2cl.csv'), is_input=False)
     if is_balance:
@@ -163,6 +163,8 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
     }
 
     alltrain_list = pd.read_csv(os.path.join(data_root, 'non_alltrain_name.csv'), index_col='CaseName').index.tolist()
+    alltrain_list.remove('20180502 jingchunhua')
+    alltrain_list.remove('20151224 liuhongfei')
     for cv_index in range(1, 6):
         sub_model_folder = MakeFolder(model_folder / 'CV_{}'.format(cv_index))
         sub_val = pd.read_csv(os.path.join(data_root, 'non_train-cv{}.csv'.format(cv_index)), index_col='CaseName').index.tolist()
@@ -245,7 +247,7 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
 
 if __name__ == '__main__':
     model_root = r'/home/zhangyihong/Documents/RenJi/Model'
-    data_root = r'/home/zhangyihong/Documents/RenJi'
+    data_root = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData'
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    EnsembleTrainBySeg(device, model_root, 'ResNet3D_1027_mask_cv_2cl', data_root)
+    EnsembleTrainBySeg(device, model_root, 'ResNet3D_1121', data_root)

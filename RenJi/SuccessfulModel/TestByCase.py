@@ -30,7 +30,7 @@ class InferenceByCase(BaseImageOutModel):
         data_cropped = self.config.CropDataShape(data, resolution)
 
         with torch.no_grad():
-            inputs = torch.from_numpy(data_cropped[:, np.newaxis, ...]).to(self.device)
+            inputs = torch.from_numpy(data_cropped[:, np.newaxis, ...]).float().to(self.device)
             preds_list = self.model(inputs)
 
         pred = torch.sigmoid(preds_list).cpu().detach().numpy()
@@ -71,13 +71,13 @@ if __name__ == '__main__':
     model_folder = r'/home/zhangyihong/Documents/RenJi/SuccessfulModel/UNet_1118'
     pred_folder = r'/home/zhangyihong/Documents/RenJi/Data/PredData'
 
-    root_folder = Path(r'/home/zhangyihong/Documents/RenJi/Data/ClassData/2CHNPY')
+    root_folder = Path(r'/home/zhangyihong/Documents/RenJi/Data/ClassData/2CHNPYExternal')
 
     segmentor = InferenceByCase()
     segmentor.LoadConfigAndModel(model_folder)
 
-    nii_folder = os.path.join(pred_folder, '2CH')
-    jpg_folder = os.path.join(pred_folder, 'Image')
+    nii_folder = os.path.join(pred_folder, '2CHExternal')
+    jpg_folder = os.path.join(pred_folder, 'Image2CHExternal')
     if not os.path.exists(nii_folder): os.mkdir(nii_folder)
     if not os.path.exists(jpg_folder): os.mkdir(jpg_folder)
 
@@ -87,8 +87,13 @@ if __name__ == '__main__':
 
         data = np.load(os.path.join(root_folder, case))
 
-        segmentor.run(data, save_nii=pred_folder,
-                      save_jpg=os.path.join(jpg_folder, '{}.jpg'.format(str(case.name).split('.npy')[0])))
+        # segmentor.run(data, save_nii=pred_folder,
+        #               save_jpg=os.path.join(jpg_folder, '{}.jpg'.format(str(case.name).split('.npy')[0])))
+
+        # pred = segmentor.run(data, save_nii=pred_folder, save_jpg=r'')
+
+
+
 
         print('successful predict {}'.format(str(case.name).split('.npy')[0]))
 

@@ -13,13 +13,13 @@ import pandas as pd
 from torch.utils.data import Dataset
 
 
-from BasicTool.MeDIT.Others import SplitPathWithSuffex, AddNameInEnd
-from BasicTool.MeDIT.Augment import ParamGenerate, map_dict
-from CnnTools.T4T.Utility.ImageProcessor import OneImageProcess2D
-from CnnTools.T4T.Utility import FILE_SEPARATOR
+from MeDIT.Others import SplitPathWithSuffex, AddNameInEnd
+from MeDIT.Augment import ParamGenerate, map_dict
+from T4T.Utility.ImageProcessor import OneImageProcess2D
+from T4T.Utility import FILE_SEPARATOR
 
-from MyDataLoader.DataAugmentor import DataAugmentor3D
-from MyDataLoader.ImageProcessor import OneImageProcess3D
+from RenJi.MyDataLoader.DataAugmentor import DataAugmentor3D
+from RenJi.MyDataLoader.ImageProcessor import OneImageProcess3D
 
 
 def MoveTensorsToDevice(tensor, device):
