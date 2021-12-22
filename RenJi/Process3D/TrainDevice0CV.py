@@ -1,3 +1,4 @@
+import os
 import shutil
 
 import torch
@@ -145,7 +146,7 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
     total_epoch = 10000
     batch_size = 16
     model_folder = MakeFolder(model_root + '/{}'.format(model_name))
-    ClearGraphPath(model_folder)
+    # ClearGraphPath(model_folder)
 
     param_config = {
         RotateTransform.name: {'theta': ['uniform', -10, 10]},
@@ -167,7 +168,16 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
     alltrain_list.remove('20151224 liuhongfei')
     for cv_index in range(1, 6):
         sub_model_folder = MakeFolder(model_folder / 'CV_{}'.format(cv_index))
-        sub_val = pd.read_csv(os.path.join(data_root, 'non_train-cv{}.csv'.format(cv_index)), index_col='CaseName').index.tolist()
+        sub_val = pd.read_csv(os.path.join(data_root, 'non_train-cv{}_1123.csv'.format(cv_index)), index_col='CaseName').index.tolist()
+        try:
+            sub_val.remove('20180502 jingchunhua')
+        except Exception:
+            pass
+        try:
+            sub_val.remove('20151224 liuhongfei')
+        except Exception:
+            pass
+
         sub_train = [case for case in alltrain_list if case not in sub_val]
         train_loader, train_batches = _GetLoader(data_root, sub_train, param_config, input_shape, batch_size, True)
         val_loader, val_batches = _GetLoader(data_root, sub_val, None, input_shape, batch_size, True)
@@ -246,8 +256,8 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
 
 
 if __name__ == '__main__':
-    model_root = r'/home/zhangyihong/Documents/RenJi/Model'
+    model_root = r'/home/zhangyihong/Documents/RenJi/Model3D'
     data_root = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData'
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    EnsembleTrainBySeg(device, model_root, 'ResNet3D_1121', data_root)
+    EnsembleTrainBySeg(device, model_root, 'ResNet3D_1123_mask', data_root)

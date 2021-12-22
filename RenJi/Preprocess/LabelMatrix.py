@@ -150,7 +150,7 @@ def SplitDataset():
 
 def SplitCV(cv_folder):
     # 同一个患者不同时间的数据应该放在同一个cv中，不然会导致数据泄露
-    csv_path = r'Z:\RenJi\non_alltrain_name.csv'
+    csv_path = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/non_alltrain_name.csv'
     df = pd.read_csv(csv_path, index_col='CaseName')
     case_list = df.index.tolist()
     shuffle(case_list)
@@ -203,8 +203,71 @@ def SplitCV(cv_folder):
 
     for index in range(cv_folder):
         df = pd.DataFrame({'CaseName': cv_list[index]})
-        df.to_csv(r'Z:\RenJi\non_train-cv{}.csv'.format(index+1), index=False)
+        df.to_csv(r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/non_train-cv{}_1207.csv'.format(index+1), index=False)
 # SplitCV(5)
+
+
+def SplitCVNew(cv_folder):
+    # 同一个患者不同时间的数据应该放在同一个cv中，不然会导致数据泄露
+    csv_path = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/non_alltrain_name.csv'
+    df = pd.read_csv(csv_path, index_col='CaseName')
+    case_list = df.index.tolist()
+    shuffle(case_list)
+    case_list_name = [case.split(' ')[-1] for case in case_list]
+    repeat_case_name = list(set([case for case in case_list_name if case_list_name.count(case) > 1])) # 重复的数据
+    no_repeat_case_list = [case for case in case_list if case.split(' ')[-1] not in repeat_case_name]
+    repeat_case_list = [case for case in case_list if case.split(' ')[-1] in repeat_case_name]
+    shuffle(repeat_case_name)
+
+    drop_data = []
+    if len(repeat_case_name) % 5 > 0:
+        drop_num = - (len(repeat_case_name) % 5)
+        drop_data = repeat_case_name[drop_num:]
+        [repeat_case_name.remove(drop) for drop in drop_data]
+    repeat_case_name = np.array(repeat_case_name).reshape((5, len(repeat_case_name)//5)).tolist()
+    [repeat_case_name[idx].append(drop) for idx, drop in enumerate(drop_data)]
+
+    cv_list = [[] for index in range(cv_folder)]
+    cv_name_list = [[] for index in range(cv_folder)]
+
+    cv = 0
+    for case in no_repeat_case_list:
+        cv_list[cv].append(case)
+        cv_name_list[cv].append(case.split(' ')[-1])
+        if len(cv_list[cv]) >= len(no_repeat_case_list) // cv_folder:
+            if cv == 4:
+                continue
+            else:
+                cv += 1
+
+    for case in repeat_case_list:
+        case_name = case.split(' ')[-1]
+        if case_name in repeat_case_name[0]:
+            cv_list[0].append(case)
+            cv_name_list[0].append(case_name)
+        elif case_name in repeat_case_name[1]:
+            cv_list[1].append(case)
+            cv_name_list[1].append(case_name)
+        elif case_name in repeat_case_name[2]:
+            cv_list[2].append(case)
+            cv_name_list[2].append(case_name)
+        elif case_name in repeat_case_name[3]:
+            cv_list[3].append(case)
+            cv_name_list[3].append(case_name)
+        elif case_name in repeat_case_name[4]:
+            cv_list[4].append(case)
+            cv_name_list[4].append(case_name)
+
+    for index in range(cv_folder):
+        for case in cv_name_list[index]:
+            for i in range(index+1, cv_folder):
+                if case in cv_name_list[i]:
+                    print('error')
+
+    for index in range(cv_folder):
+        df = pd.DataFrame({'CaseName': cv_list[index]})
+        df.to_csv(r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/non_train-cv{}_1207.csv'.format(index+1), index=False)
+# SplitCVNew(5)
 
 
 def Statistics(data_path):
@@ -315,7 +378,7 @@ def SplitNonNormal():
     # 同一个患者不同时间的数据应该放在同一个数据集中，不然会导致数据泄露，包括在cv的过程中
     # 1: 0.36 	2: 0.44 	3: 0.20
 
-    csv_path = r'Z:\RenJi\non_normal_case.csv'
+    csv_path = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/non_case.csv'
     df = pd.read_csv(csv_path, index_col='CaseName')
     case_list = df.index.tolist()
     case_list_name = [case.split(' ')[-1] for case in case_list]  # 不重复的数据
@@ -381,6 +444,7 @@ def SplitNonNormal():
                 break
 # SplitNonNormal()
 
+
 def GenerateLabel():
     case_list = os.listdir(r'Z:\RenJi\ExternalTest\external test')
     case_dict = {'CaseName': [], 'Label': []}
@@ -395,3 +459,23 @@ def GenerateLabel():
     df = pd.DataFrame.from_dict(case_dict)
     df.to_csv(r'Z:\RenJi\ExternalTest\external_test.csv', index=False)
 # GenerateLabel()
+
+
+def StatisticCV():
+    for index in range(0, 5):
+        label_path = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/label_2cl.csv'
+        label = pd.read_csv(label_path, index_col='CaseName')
+        csv_path = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData/non_train-cv{}_1207.csv'.format(index+1)
+        case_list = pd.read_csv(csv_path, index_col='CaseName').index.tolist()
+        a, b = 0, 0
+        for case in case_list:
+            if label.loc[case, 'Label'] == 0:
+                a += 1
+            elif label.loc[case, 'Label'] == 1:
+                b += 1
+            else:
+                print('?')
+        print(index+1, a, b)
+StatisticCV()
+
+

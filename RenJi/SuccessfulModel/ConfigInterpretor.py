@@ -252,17 +252,18 @@ class ConfigInterpretor:
 class BaseImageOutModel():
 
     config = ConfigInterpretor()
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
     def __init__(self):
         super(BaseImageOutModel).__init__()
 
     def LoadConfigAndModel(self, fold_path):
+        self.fold_path = fold_path
+
         config_path = os.path.join(fold_path, 'config.ini')
-        weights_path = os.path.join(fold_path, 'weights.pt')
         model_path = os.path.join(fold_path, 'model.py')
 
-        if not (os.path.exists(config_path) and os.path.exists(weights_path) and os.path.exists(model_path)):
+        if not (os.path.exists(config_path) and os.path.exists(model_path)):
             return False
 
         self.config.LoadModelConfig(config_path)
@@ -271,8 +272,6 @@ class BaseImageOutModel():
         from model import Network
 
         self.model = Network(self.config.GetChannel()[0], self.config.GetChannel()[1]).to(self.device)
-        self.model.load_state_dict(torch.load(str(weights_path)))
-        self.model.eval()
         return True
 
 if __name__ == '__main__':

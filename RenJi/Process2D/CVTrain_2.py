@@ -6,10 +6,8 @@ import pandas as pd
 from scipy.ndimage import binary_dilation
 import torch
 from torch.utils.data import DataLoader
-from torchvision.transforms import Normalize
 from tensorboardX import SummaryWriter
 from sklearn.metrics import roc_auc_score
-import matplotlib.pyplot as plt
 
 from MeDIT.Augment import *
 from MeDIT.Others import MakeFolder, CopyFile
@@ -18,8 +16,8 @@ from T4T.Utility.Data import *
 from T4T.Utility.CallBacks import EarlyStopping
 from T4T.Utility.Initial import HeWeightInit
 
-from RenJi.Network2D.MergeResNet import resnet50
-# from MeDIT.Normalize import NormalizeZ
+# from RenJi.Network2D.MergeResNet import resnet50
+from RenJi.Network2D.ResNet2D import resnet50
 
 
 def ClearGraphPath(graph_path):
@@ -33,10 +31,10 @@ def ClearGraphPath(graph_path):
 def _GetLoader(data_root, sub_list, aug_param_config, input_shape, batch_size, shuffle, is_balance=True):
     data = DataManager(sub_list=sub_list, augment_param=aug_param_config)
 
-    data.AddOne(Image2D(data_root + '/2CHPred_SliceBySeg_1207', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/3CHPred_SliceBySeg_1207', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/2CHROIPred_SliceBySeg_1207', shape=input_shape, is_roi=True))
-    data.AddOne(Image2D(data_root + '/3CHROIPred_SliceBySeg_1207', shape=input_shape, is_roi=True))
+    data.AddOne(Image2D(data_root + '/2CHPred_5slice', shape=input_shape))
+    # data.AddOne(Image2D(data_root + '/3CHPred_5slice', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/2CHROIPred_5slice', shape=input_shape, is_roi=True))
+    # data.AddOne(Image2D(data_root + '/3CHROIPred_5slice', shape=input_shape, is_roi=True))
 
     data.AddOne(Label(data_root + '/label_2cl.csv'), is_input=False)
     if is_balance:
@@ -75,7 +73,6 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
 
     alltrain_list = pd.read_csv(os.path.join(data_root, 'non_alltrain_name.csv'), index_col='CaseName').index.tolist()
     for cv_index in range(1, 6):
-        print('**********************  CV-{} ************************'.format(cv_index))
         sub_model_folder = MakeFolder(model_folder / 'CV_{}'.format(cv_index))
         sub_val = pd.read_csv(os.path.join(data_root, 'non_train-cv{}_1123.csv'.format(cv_index)), index_col='CaseName').index.tolist()
         sub_train = [case for case in alltrain_list if case not in sub_val]
@@ -100,10 +97,9 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
                 image = MoveTensorsToDevice(inputs, device)
                 outputs = MoveTensorsToDevice(outputs, device)
 
-                image_2ch = image[0] * image[2]
-                image_3ch = image[1] * image[3]
+                image = image[0]*image[1]
 
-                preds = model(image_2ch, image_3ch)
+                preds = model(image)
 
                 optimizer.zero_grad()
 
@@ -118,10 +114,9 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
                 for ind, (inputs, outputs) in enumerate(val_loader):
                     image = MoveTensorsToDevice(inputs, device)
                     outputs = MoveTensorsToDevice(outputs, device)
-                    image_2ch = image[0] * image[2]
-                    image_3ch = image[1] * image[3]
+                    image = image[0] * image[1]
 
-                    preds = model(image_2ch, image_3ch)
+                    preds = model(image)
 
                     loss = bce_loss(torch.squeeze(preds), outputs)
 
@@ -153,6 +148,6 @@ def EnsembleTrainBySeg(device, model_root, model_name, data_root):
 if __name__ == '__main__':
     model_root = r'/home/zhangyihong/Documents/RenJi/Model2D'
     data_root = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData'
-    device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    EnsembleTrainBySeg(device, model_root, 'ResNet_1210_mask_SliceBySeg', data_root)
+    EnsembleTrainBySeg(device, model_root, 'ResNet_1210_2CH', data_root)

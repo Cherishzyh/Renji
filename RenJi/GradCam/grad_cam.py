@@ -30,8 +30,8 @@ class _BaseWrapper(object):
 
     # have no roi and have only 1 output
     def forward(self, inputs):
-        self.logits = self.model(inputs)
-        self.probs = F.softmax(self.logits, dim=1)
+        self.logits = self.model(*inputs)
+        self.probs = F.sigmoid(self.logits)
         return self.probs
 
     def backward(self, ids):
@@ -149,7 +149,6 @@ class GradCAM(_BaseWrapper):
 
         gcam = torch.mul(fmaps, weights).sum(dim=1, keepdim=True)
         gcam = F.relu(gcam)
-        gcam = torch.sum(gcam, dim=2)
         gcam = F.interpolate(gcam, target_shape, mode="bilinear", align_corners=False)
 
 

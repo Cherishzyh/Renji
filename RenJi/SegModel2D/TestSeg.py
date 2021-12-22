@@ -102,8 +102,8 @@ def Inference(model_root, data_root, model_name, data_type):
 
     data = DataManager(sub_list=sub_list)
 
-    data.AddOne(Image2D(data_root + '/NPY', shape=input_shape))
-    data.AddOne(Image2D(data_root + '/RoiNPY', shape=input_shape, is_roi=True), is_input=False)
+    data.AddOne(Image2D(data_root + '/NPYOneSlice', shape=input_shape))
+    data.AddOne(Image2D(data_root + '/ROIOneSlice', shape=input_shape, is_roi=True), is_input=False)
     data_loader = DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=36, pin_memory=True)
 
     model = UNet(in_channels=1, out_channels=1).to(device)
@@ -118,16 +118,17 @@ def Inference(model_root, data_root, model_name, data_type):
 
     t2_list, pred_list, label_list = [], [], []
     model.eval()
-    for inputs, outputs in data_loader:
-        image = inputs[:, :1]
-        outputs = outputs[:, :1]
-        t2_list.append(image)
-        image = MoveTensorsToDevice(image, device)
+    with torch.no_grad:
+        for inputs, outputs in data_loader:
+            # image = inputs[:, :1]
+            # outputs = outputs[:, :1]
+            t2_list.append(inputs)
+            image = MoveTensorsToDevice(inputs, device)
 
-        preds = model(image)
+            preds = model(image)
 
-        pred_list.append(torch.sigmoid(preds).cpu().detach())
-        label_list.append(outputs)
+            pred_list.append(torch.sigmoid(preds).cpu().detach())
+            label_list.append(outputs)
 
     np.save(os.path.join(model_folder, '{}_preds.npy'.format(data_type)), torch.cat(pred_list, dim=0).numpy())
     np.save(os.path.join(model_folder, '{}_label.npy'.format(data_type)), torch.cat(label_list, dim=0).numpy())
@@ -219,22 +220,23 @@ def InferenceByCase(model_root, data_root, model_name, data_type):
 
 
 if __name__ == '__main__':
-    model_root = r'/home/zhangyihong/Documents/RenJi/SegModel'
-    data_root = r'/home/zhangyihong/Documents/RenJi/CaseWithROI'
-    model_name = 'UNet_1026_mix23_use'
+    model_folder = r'/home/zhangyihong/Documents/RenJi/SegModel'
+    data_root = r'/home/zhangyihong/Documents/RenJi/Data/SegData'
+    model_name = 'UNet_1118'
 
-    device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
-    #
-    # Inference(model_root, data_root, model_name, data_type='train')
-    # print()
-    # Inference(model_root, data_root, model_name, data_type='val')
-    # print()
-    # Inference(model_root, data_root, model_name, data_type='test')
-    #
-    # ShowHist(os.path.join(model_root, model_name), data_type='train')
-    # ShowHist(os.path.join(model_root, model_name), data_type='val')
-    # ShowHist(os.path.join(model_root, model_name), data_type='test')
-    # Visualization(os.path.join(model_root, model_name), data_type='test')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    Inference(model_folder, data_root, model_name, data_type='train')
+    print()
+    Inference(model_folder, data_root, model_name, data_type='val')
+    print()
+    Inference(model_folder, data_root, model_name, data_type='test')
+
+    ShowHist(os.path.join(model_folder, model_name), data_type='train')
+    ShowHist(os.path.join(model_folder, model_name), data_type='val')
+    ShowHist(os.path.join(model_folder, model_name), data_type='test')
+
+    Visualization(os.path.join(model_folder, model_name), data_type='test')
 
     # Inference(model_root, data_root, model_name, data_type='non_alltrain')
     # ShowHist(os.path.join(model_root, model_name), data_type='non_alltrain')
@@ -267,4 +269,4 @@ if __name__ == '__main__':
     #         # plt.show()
     #         plt.close()
     #
-    Inference(model_root, data_root, model_name, data_type='external')
+    # Inference(model_root, data_root, model_name, data_type='external')

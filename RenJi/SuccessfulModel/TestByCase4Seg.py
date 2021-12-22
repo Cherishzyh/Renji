@@ -93,7 +93,5 @@ if __name__ == '__main__':
         # pred = segmentor.run(data, save_nii=pred_folder, save_jpg=r'')
 
 
-
-
         print('successful predict {}'.format(str(case.name).split('.npy')[0]))
 

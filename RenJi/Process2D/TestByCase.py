@@ -79,16 +79,11 @@ if __name__ == '__main__':
     model_path = os.path.join(model_folder, 'ResNet_1026_5slice_cv_2cl_mixseg')
     weights_list = None
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 
-    data_root = r'/home/zhangyihong/Documents/RenJi'
+    data_root = r'/home/zhangyihong/Documents/RenJi/Data/CenterCropData'
 
     train_list = pd.read_csv(os.path.join(data_root, 'non_alltrain_name.csv'), index_col='CaseName').index.tolist()
     test_list = pd.read_csv(os.path.join(data_root, 'non_test_name.csv'), index_col='CaseName').index.tolist()
-
-    # data_root = r'/home/zhangyihong/Documents/RenJi/ExternalTest'
-    # external_list = pd.read_csv(os.path.join(data_root, 'external_test.csv'), index_col='CaseName').index.tolist()
-    label_df = pd.read_csv(os.path.join(data_root, 'label_2cl.csv'), index_col='CaseName')
 
     data_list = test_list
     case_list, pred_list = [], []
